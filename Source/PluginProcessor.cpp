@@ -24,6 +24,16 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     cabBypass  = apvts.getRawParameterValue ("cabBypass");
     cabLowCut  = apvts.getRawParameterValue ("cabLowCut");
     cabHighCut = apvts.getRawParameterValue ("cabHighCut");
+
+    vibeOn        = apvts.getRawParameterValue ("vibeOn");
+    vibeSpeed     = apvts.getRawParameterValue ("vibeSpeed");
+    vibeIntensity = apvts.getRawParameterValue ("vibeIntensity");
+    vibeMode      = apvts.getRawParameterValue ("vibeMode");
+
+    odOn     = apvts.getRawParameterValue ("odOn");
+    odGain   = apvts.getRawParameterValue ("odGain");
+    odTreble = apvts.getRawParameterValue ("odTreble");
+    odOutput = apvts.getRawParameterValue ("odOutput");
 }
 
 //==============================================================================
@@ -134,6 +144,41 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
         juce::ParameterID { "cabHighCut", 1 }, "Cab High Cut", highCutRange, 20000.0f, // 20 kHz = off
         juce::AudioParameterFloatAttributes().withLabel ("Hz")));
 
+    // Vibe pedal
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "vibeOn", 1 }, "Vibe On", false));
+
+    juce::NormalisableRange<float> speedRange (0.5f, 12.0f, 0.01f);
+    speedRange.setSkewForCentre (3.0f);
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "vibeSpeed", 1 }, "Vibe Speed", speedRange, 3.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "vibeIntensity", 1 }, "Vibe Intensity",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 70.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "vibeMode", 1 }, "Vibe Mode",
+        juce::StringArray { "Chorus", "Vibrato" }, 0));
+
+    // Gold Drive pedal (knobs 0..10 like the real pedal)
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "odOn", 1 }, "Drive On", false));
+
+    const auto addKnob10 = [&layout] (const juce::String& id, const juce::String& name, float def)
+    {
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { id, 1 }, name,
+            juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), def));
+    };
+
+    addKnob10 ("odGain",   "Drive Gain",   3.0f);
+    addKnob10 ("odTreble", "Drive Treble", 5.0f);
+    addKnob10 ("odOutput", "Drive Output", 5.0f);
+
     return layout;
 }
 
@@ -141,7 +186,12 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
 void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     noiseGate.prepare (sampleRate, samplesPerBlock);
+    vibe.prepare (sampleRate);
+    goldDrive.prepare (sampleRate, samplesPerBlock);
     cabIR.prepare (sampleRate, samplesPerBlock);
+
+    // Tell Cubase about the overdrive's oversampling delay so it compensates
+    setLatencySamples (goldDrive.getLatencySamples());
     namAmp.prepare (sampleRate, samplesPerBlock);
     toneStack.prepare (sampleRate);
 
@@ -187,60 +237,67 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     inputGain.setTargetValue  (juce::Decibels::decibelsToGain (inputGainDb->load()));
     outputGain.setTargetValue (juce::Decibels::decibelsToGain (outputGainDb->load()));
 
-    // 1) Input gain
-    inputGain.applyGain (buffer, numSamples);
+    // The whole guitar chain is mono: it runs on the first channel and is
+    // copied to the other channel(s) at the end.
+    auto* mono = buffer.getWritePointer (0);
 
-    // 2) Noise gate, part 1: listen to the clean guitar (before the amp)
+    // 1) Input gain
+    inputGain.applyGain (mono, numSamples);
+
+    // 2) Noise gate, part 1: listen to the clean guitar (before pedals and amp)
     const bool gateEnabled = gateOn->load() > 0.5f;
 
     if (gateEnabled)
     {
         noiseGate.setParameters (gateThreshold->load(), gateRelease->load());
-        noiseGate.analyse (buffer.getReadPointer (0), numSamples);
+        noiseGate.analyse (mono, numSamples);
     }
 
-    // (Phase 4) Uni-Vibe -> Klon-style OD will go here
+    // 3) Pedals: VIBE -> GOLD DRIVE
+    if (vibeOn->load() > 0.5f)
+    {
+        vibe.setParameters (vibeSpeed->load(), vibeIntensity->load() / 100.0f, vibeMode->load() > 0.5f);
+        vibe.process (mono, numSamples);
+    }
 
-    // 3) Amp: GAIN -> NAM model -> BASS/MIDDLE/TREBLE -> VOLUME
-    //    NAM models are mono: process the first channel,
-    //    then copy the result to the other channel(s)
+    // Gold Drive always runs (oversampling latency must stay constant);
+    // when it's off the signal just passes through clean.
+    goldDrive.setParameters (odGain->load(), odTreble->load(), odOutput->load());
+    goldDrive.process (mono, numSamples, odOn->load() > 0.5f);
+
+    // 4) Amp: GAIN -> NAM model -> BASS/MIDDLE/TREBLE -> VOLUME
     if (ampBypass->load() < 0.5f && namAmp.hasModel())
     {
-        auto* amp = buffer.getWritePointer (0);
-
         ampGain.setTargetValue (juce::Decibels::decibelsToGain (ampGainDb->load()));
-        ampGain.applyGain (amp, numSamples);
+        ampGain.applyGain (mono, numSamples);
 
-        namAmp.process (amp, numSamples);
+        namAmp.process (mono, numSamples);
 
         toneStack.setGains (ampBassDb->load(), ampMiddleDb->load(), ampTrebleDb->load());
-        toneStack.process (amp, numSamples);
+        toneStack.process (mono, numSamples);
 
         ampVolume.setTargetValue (juce::Decibels::decibelsToGain (ampVolumeDb->load()));
-        ampVolume.applyGain (amp, numSamples);
-
-        for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
-            buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
+        ampVolume.applyGain (mono, numSamples);
     }
 
-    // 4) Noise gate, part 2: silence after the amp (removes amp hiss too)
+    // 5) Noise gate, part 2: silence after the amp (removes amp hiss too)
     if (gateEnabled)
-        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-            noiseGate.apply (buffer.getWritePointer (ch), numSamples);
+        noiseGate.apply (mono, numSamples);
 
-    // 5) Cabinet IR + Low Cut / High Cut (mono, then copied to other channels)
+    // 6) Cabinet IR + Low Cut / High Cut
     if (cabBypass->load() < 0.5f)
     {
         cabIR.setFilters (cabLowCut->load(), cabHighCut->load());
-        cabIR.process (buffer.getWritePointer (0), numSamples);
-
-        for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
-            buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
+        cabIR.process (mono, numSamples);
     }
 
     // (Phase 5) Delay/Reverb will go here
 
-    // 6) Output gain
+    // Mono -> all channels
+    for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
+        buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
+
+    // 7) Output gain
     outputGain.applyGain (buffer, numSamples);
 }
 

@@ -26,6 +26,10 @@
         <FILE id="fNGateC" name="NoiseGate.cpp" compile="1" resource="0" file="Source/Modules/NoiseGate.cpp"/>
         <FILE id="fCabIRH" name="CabIR.h" compile="0" resource="0" file="Source/Modules/CabIR.h"/>
         <FILE id="fCabIRC" name="CabIR.cpp" compile="1" resource="0" file="Source/Modules/CabIR.cpp"/>
+        <FILE id="fVibeH" name="Vibe.h" compile="0" resource="0" file="Source/Modules/Vibe.h"/>
+        <FILE id="fVibeC" name="Vibe.cpp" compile="1" resource="0" file="Source/Modules/Vibe.cpp"/>
+        <FILE id="fGoldH" name="GoldDrive.h" compile="0" resource="0" file="Source/Modules/GoldDrive.h"/>
+        <FILE id="fGoldC" name="GoldDrive.cpp" compile="1" resource="0" file="Source/Modules/GoldDrive.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="gNam001" name="NAM">

@@ -4,7 +4,8 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Editor: INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
+// Editor:  pedal row:  VIBE | GOLD DRIVE
+//          rack row:   INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
 //==============================================================================
 class VintageGuitarSuiteAudioProcessorEditor : public juce::AudioProcessorEditor,
                                                private juce::Timer
@@ -53,6 +54,18 @@ private:
     static constexpr int numAmpKnobs = 5;
     std::array<juce::Slider, numAmpKnobs> ampKnobs;
     std::array<juce::Label,  numAmpKnobs> ampKnobLabels;
+    // Pedals
+    juce::Rectangle<int> vibeArea, odArea, vibeLedArea, odLedArea;
+
+    juce::ToggleButton vibeOnButton { "ON" };
+    juce::Slider vibeSpeedKnob, vibeIntensityKnob;
+    juce::Label  vibeSpeedLabel, vibeIntensityLabel;
+    juce::ComboBox vibeModeBox;
+
+    juce::ToggleButton odOnButton { "ON" };
+    juce::Slider odGainKnob, odTrebleKnob, odOutputKnob;
+    juce::Label  odGainLabel, odTrebleLabel, odOutputLabel;
+
     // Cab section
     juce::Rectangle<int> cabArea;
     juce::TextButton loadIRButton  { "LOAD IR..." };
@@ -69,6 +82,10 @@ private:
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment;
     std::unique_ptr<ButtonAttachment> bypassAttachment, gateOnAttachment, cabBypassAttachment;
     std::unique_ptr<SliderAttachment> lowCutAttachment, highCutAttachment;
+    std::unique_ptr<ButtonAttachment> vibeOnAttachment, odOnAttachment;
+    std::unique_ptr<SliderAttachment> vibeSpeedAttachment, vibeIntensityAttachment;
+    std::unique_ptr<SliderAttachment> odGainAttachment, odTrebleAttachment, odOutputAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> vibeModeAttachment;
     std::unique_ptr<SliderAttachment> gateThresholdAttachment, gateReleaseAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numAmpKnobs> ampKnobAttachments;
 

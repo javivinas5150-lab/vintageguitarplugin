@@ -5,10 +5,12 @@
 #include "Modules/ToneStack.h"
 #include "Modules/NoiseGate.h"
 #include "Modules/CabIR.h"
+#include "Modules/Vibe.h"
+#include "Modules/GoldDrive.h"
 
 //==============================================================================
-// Vintage Guitar Suite - Phase 2
-// Chain: input gain -> NAM amp -> (future modules) -> output gain
+// Vintage Guitar Suite
+// Chain (mono): input -> gate detect -> VIBE -> GOLD DRIVE -> NAM amp -> gate -> CAB IR -> output
 //==============================================================================
 class VintageGuitarSuiteAudioProcessor : public juce::AudioProcessor
 {
@@ -86,7 +88,19 @@ private:
     std::atomic<float>* cabLowCut  = nullptr;
     std::atomic<float>* cabHighCut = nullptr;
 
+    std::atomic<float>* vibeOn        = nullptr;
+    std::atomic<float>* vibeSpeed     = nullptr;
+    std::atomic<float>* vibeIntensity = nullptr;
+    std::atomic<float>* vibeMode      = nullptr;
+
+    std::atomic<float>* odOn     = nullptr;
+    std::atomic<float>* odGain   = nullptr;
+    std::atomic<float>* odTreble = nullptr;
+    std::atomic<float>* odOutput = nullptr;
+
     NoiseGate noiseGate;
+    Vibe vibe;
+    GoldDrive goldDrive;
     CabIR cabIR;
     NamAmp namAmp;
     ToneStack toneStack;

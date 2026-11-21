@@ -110,6 +110,54 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     lowCutAttachment    = std::make_unique<SliderAttachment> (audioProcessor.apvts, "cabLowCut",  lowCutKnob);
     highCutAttachment   = std::make_unique<SliderAttachment> (audioProcessor.apvts, "cabHighCut", highCutKnob);
 
+    // --- Pedals ---
+    for (auto* b : { &vibeOnButton, &odOnButton })
+    {
+        b->setColour (juce::ToggleButton::textColourId, cream);
+        b->setColour (juce::ToggleButton::tickColourId, cream);
+        b->onStateChange = [this] { repaint (vibeLedArea.expanded (2)); repaint (odLedArea.expanded (2)); };
+        addAndMakeVisible (*b);
+    }
+
+    setupKnob (vibeSpeedKnob,     vibeSpeedLabel,     "SPEED",     12.0f, 62, " Hz", 3.0);
+    setupKnob (vibeIntensityKnob, vibeIntensityLabel, "INTENSITY", 12.0f, 62, " %",  70.0);
+
+    vibeModeBox.addItemList ({ "Chorus", "Vibrato" }, 1);
+    addAndMakeVisible (vibeModeBox);
+
+    setupKnob (odGainKnob,   odGainLabel,   "GAIN",   12.0f, 50, {}, 3.0);
+    setupKnob (odTrebleKnob, odTrebleLabel, "TREBLE", 12.0f, 50, {}, 5.0);
+    setupKnob (odOutputKnob, odOutputLabel, "OUTPUT", 12.0f, 50, {}, 5.0);
+
+    // Dark lettering on the gold pedal
+    const juce::Colour ink (0xff2a2010);
+    odOnButton.setColour (juce::ToggleButton::textColourId, ink);
+    odOnButton.setColour (juce::ToggleButton::tickColourId, ink);
+    odOnButton.setColour (juce::ToggleButton::tickDisabledColourId, ink.withAlpha (0.6f));
+
+    for (auto* l : { &odGainLabel, &odTrebleLabel, &odOutputLabel })
+        l->setColour (juce::Label::textColourId, ink);
+
+    for (auto* k : { &odGainKnob, &odTrebleKnob, &odOutputKnob })
+    {
+        k->setColour (juce::Slider::rotarySliderFillColourId,    ink);
+        k->setColour (juce::Slider::rotarySliderOutlineColourId, juce::Colour (0xff8a6f2e));
+        k->setColour (juce::Slider::thumbColourId,               juce::Colour (0xfff5e6b8));
+        k->setColour (juce::Slider::textBoxTextColourId,         ink);
+        k->setColour (juce::Slider::textBoxOutlineColourId,      juce::Colours::transparentBlack);
+    }
+
+    vibeOnAttachment        = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "vibeOn",        vibeOnButton);
+    vibeSpeedAttachment     = std::make_unique<SliderAttachment> (audioProcessor.apvts, "vibeSpeed",     vibeSpeedKnob);
+    vibeIntensityAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "vibeIntensity", vibeIntensityKnob);
+    vibeModeAttachment      = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
+                                  audioProcessor.apvts, "vibeMode", vibeModeBox);
+
+    odOnAttachment     = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "odOn",     odOnButton);
+    odGainAttachment   = std::make_unique<SliderAttachment> (audioProcessor.apvts, "odGain",   odGainKnob);
+    odTrebleAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "odTreble", odTrebleKnob);
+    odOutputAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "odOutput", odOutputKnob);
+
     lastFolder   = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
     lastIRFolder = lastFolder;
 
@@ -117,7 +165,7 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     refreshCabInfo();
     startTimerHz (15); // gate LED + keeps the model / IR names in sync
 
-    setSize (1180, 400);
+    setSize (1180, 640);
 }
 
 //==============================================================================
@@ -259,7 +307,45 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Gate  -  NAM Amp  -  Cab IR", 0, 42, getWidth(), 16, juce::Justification::centred);
+    g.drawText ("Vibe  -  Gold Drive  -  Gate  -  NAM Amp  -  Cab IR", 0, 42, getWidth(), 16,
+                juce::Justification::centred);
+
+    // --- Pedals ---
+    const auto drawLed = [&g] (juce::Rectangle<int> area, bool on)
+    {
+        const auto r = area.toFloat();
+        g.setColour (on ? juce::Colour (0xffff3b2a) : juce::Colour (0xff3a1a16));
+        g.fillEllipse (r);
+        if (on)
+        {
+            g.setColour (juce::Colour (0x55ff3b2a));
+            g.fillEllipse (r.expanded (3.0f));
+        }
+        g.setColour (juce::Colours::black.withAlpha (0.6f));
+        g.drawEllipse (r, 1.0f);
+    };
+
+    // VIBE: dark enclosure with chrome edge
+    g.setColour (juce::Colour (0xff2a2a30));
+    g.fillRoundedRectangle (vibeArea.toFloat(), 10.0f);
+    g.setColour (silver);
+    g.drawRoundedRectangle (vibeArea.toFloat().reduced (1.0f), 10.0f, 2.0f);
+    g.setColour (cream);
+    g.setFont (juce::FontOptions (18.0f, juce::Font::bold));
+    g.drawText ("VIBE", vibeArea.withHeight (34), juce::Justification::centred);
+    drawLed (vibeLedArea, vibeOnButton.getToggleState());
+
+    // GOLD DRIVE: gold enclosure, dark lettering
+    juce::ColourGradient gold (juce::Colour (0xffe2c26a), odArea.getTopLeft().toFloat(),
+                               juce::Colour (0xffb08a38), odArea.getBottomRight().toFloat(), false);
+    g.setGradientFill (gold);
+    g.fillRoundedRectangle (odArea.toFloat(), 10.0f);
+    g.setColour (juce::Colour (0xff7a5f24));
+    g.drawRoundedRectangle (odArea.toFloat().reduced (1.0f), 10.0f, 2.0f);
+    g.setColour (juce::Colour (0xff2a2010));
+    g.setFont (juce::FontOptions (18.0f, juce::Font::bold));
+    g.drawText ("GOLD DRIVE", odArea.withHeight (34), juce::Justification::centred);
+    drawLed (odLedArea, odOnButton.getToggleState());
 
     // Gate, amp and cab panels
     for (auto [panel, title] : { std::pair { gateArea, "GATE" },
@@ -289,6 +375,58 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced (20);
     area.removeFromTop (50); // title space
 
+    // --- Pedal row (centred): VIBE | GOLD DRIVE ---
+    auto pedalRow = area.removeFromTop (220);
+    area.removeFromTop (14);
+
+    constexpr int pedalWidth = 320, pedalGap = 40;
+    auto pedals = pedalRow.withSizeKeepingCentre (pedalWidth * 2 + pedalGap, pedalRow.getHeight());
+    vibeArea = pedals.removeFromLeft (pedalWidth);
+    pedals.removeFromLeft (pedalGap);
+    odArea = pedals;
+
+    // Vibe contents
+    {
+        auto p = vibeArea.reduced (14);
+        p.removeFromTop (28); // title
+
+        auto onRow = p.removeFromTop (26);
+        vibeLedArea = onRow.removeFromRight (16).withSizeKeepingCentre (14, 14);
+        vibeOnButton.setBounds (onRow.withSizeKeepingCentre (60, 26));
+
+        vibeModeBox.setBounds (p.removeFromBottom (26).withSizeKeepingCentre (130, 24));
+        p.removeFromBottom (4);
+
+        auto speedCol = p.removeFromLeft (p.getWidth() / 2);
+        vibeSpeedLabel.setBounds     (speedCol.removeFromTop (16));
+        vibeSpeedKnob.setBounds      (speedCol);
+        vibeIntensityLabel.setBounds (p.removeFromTop (16));
+        vibeIntensityKnob.setBounds  (p);
+    }
+
+    // Gold Drive contents
+    {
+        auto p = odArea.reduced (14);
+        p.removeFromTop (28); // title
+
+        auto onRow = p.removeFromTop (26);
+        odLedArea = onRow.removeFromRight (16).withSizeKeepingCentre (14, 14);
+        odOnButton.setBounds (onRow.withSizeKeepingCentre (60, 26));
+        p.removeFromTop (6);
+
+        const int colW = p.getWidth() / 3;
+        juce::Slider* knobs[] = { &odGainKnob, &odTrebleKnob, &odOutputKnob };
+        juce::Label*  labels[] = { &odGainLabel, &odTrebleLabel, &odOutputLabel };
+
+        for (int i = 0; i < 3; ++i)
+        {
+            auto col = p.removeFromLeft (colW);
+            labels[i]->setBounds (col.removeFromTop (16));
+            knobs[i]->setBounds (col);
+        }
+    }
+
+    // --- Rack row ---
     auto left  = area.removeFromLeft (130);
     auto right = area.removeFromRight (130);
     gateArea   = area.removeFromLeft (170).reduced (10, 0);
