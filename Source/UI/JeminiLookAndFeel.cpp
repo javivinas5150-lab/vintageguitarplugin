@@ -4,7 +4,7 @@
 const juce::Colour JeminiLookAndFeel::cream      (0xfff2ead3);
 const juce::Colour JeminiLookAndFeel::ink        (0xff2a2010);
 const juce::Colour JeminiLookAndFeel::panelBlack (0xff111113);
-const juce::Colour JeminiLookAndFeel::silver     (0xffc9ccd1);
+const juce::Colour JeminiLookAndFeel::silver     (0xffdfe2e6);
 const juce::Colour JeminiLookAndFeel::blueLed    (0xff57d6ff);
 const juce::Colour JeminiLookAndFeel::redLed     (0xffff3b2a);
 
@@ -487,7 +487,7 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "rackSelect")
     {
         const bool selected = button.getToggleState();
-        g.setColour (selected ? juce::Colours::white : silver.withAlpha (highlighted ? 0.85f : 0.55f));
+        g.setColour (selected ? juce::Colours::white : silver.withAlpha (highlighted ? 0.95f : 0.8f));
         g.setFont (condensed (15.0f));
         g.drawText (button.getButtonText(), button.getLocalBounds().withTrimmedLeft (2),
                     juce::Justification::centredLeft, false);
@@ -604,7 +604,7 @@ void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
             g.setGradientFill (lit);
             g.fillRoundedRectangle (r.reduced (1.5f), 3.0f);
         }
-        g.setColour (on ? cream.withAlpha (0.6f) : silver.withAlpha (highlighted ? 0.5f : 0.25f));
+        g.setColour (on ? cream.withAlpha (0.8f) : silver.withAlpha (highlighted ? 0.7f : 0.5f));
         g.drawRoundedRectangle (r, 4.0f, 1.0f);
         return;
     }

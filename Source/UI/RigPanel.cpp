@@ -1307,7 +1307,7 @@ void RigPanel::buildBackdrop()
         }
         else
         {
-            g.setColour (sk.titleText.withAlpha (0.35f));
+            g.setColour (sk.titleText.withAlpha (0.7f));
             g.setFont (LnF::condensed (14.0f));
             g.drawText ("JEMINI GUITAR RIG   -   NAM AMP  /  PEDALS  /  STUDIO EFFECTS", bar, juce::Justification::centred, false);
         }
@@ -1352,7 +1352,7 @@ void RigPanel::paint (juce::Graphics& g)
     g.drawImage (backdrop, juce::Rectangle<float> ((float) designWidth, (float) designHeight));
 
     const auto& sk = skin();
-    g.setColour (sk.titleText.withAlpha (0.7f));
+    g.setColour (sk.titleText.brighter (0.3f));
     g.setFont (LnF::condensed (15.0f));
     g.drawText ("SKIN", juce::Rectangle<int> (18, 11, 44, 26), juce::Justification::centredRight, false);
 
@@ -1414,9 +1414,9 @@ void RigPanel::paint (juce::Graphics& g)
         const auto sw = vibeMode.getBounds();
         const bool vib = vibeMode.getToggleState();
         g.setFont (LnF::condensed (12.5f));
-        g.setColour (sk.vibeText.withAlpha (vib ? 0.55f : 1.0f));
+        g.setColour (sk.vibeText.withAlpha (vib ? 0.8f : 1.0f));
         g.drawText ("CHORUS",  juce::Rectangle<int> (sw.getX() - 26, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
-        g.setColour (sk.vibeText.withAlpha (vib ? 1.0f : 0.55f));
+        g.setColour (sk.vibeText.withAlpha (vib ? 1.0f : 0.8f));
         g.drawText ("VIBRATO", juce::Rectangle<int> (sw.getRight() - 24, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
     }
     drawLed (g, vibeLedArea, vibeOn.getToggleState(), LnF::redLed);
@@ -1453,9 +1453,9 @@ void RigPanel::paint (juce::Graphics& g)
         const auto labelColour = namPedalShown ? sk.namText : sk.goldText;
         const auto sw = odType.getBounds();
         g.setFont (LnF::condensed (14.0f));
-        g.setColour (labelColour.withAlpha (namPedalShown ? 0.55f : 1.0f));
+        g.setColour (labelColour.withAlpha (namPedalShown ? 0.8f : 1.0f));
         g.drawText ("GOLD", juce::Rectangle<int> (sw.getX() - 40, sw.getY(), 38, sw.getHeight()), juce::Justification::centredRight, false);
-        g.setColour (labelColour.withAlpha (namPedalShown ? 1.0f : 0.55f));
+        g.setColour (labelColour.withAlpha (namPedalShown ? 1.0f : 0.8f));
         g.drawText ("NAM", juce::Rectangle<int> (sw.getRight() + 3, sw.getY(), 38, sw.getHeight()), juce::Justification::centredLeft, false);
     }
     drawLed (g, odLedArea, odOn.getToggleState(), LnF::redLed);
@@ -1745,7 +1745,7 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.setFont (LnF::condensed (11.0f));
     for (int j = 0; j < 2; ++j)
     {
-        g.setColour (sk.panelText.withAlpha (j == selectedInput ? 1.0f : 0.5f));
+        g.setColour (sk.panelText.withAlpha (j == selectedInput ? 1.0f : 0.8f));
         g.drawText (juce::String (j + 1), juce::Rectangle<float> (20.0f, 14.0f).withCentre (jackCentre (j).translated (j == 0 ? -17.0f : 17.0f, 16.0f)),
                     juce::Justification::centred, false);
     }
@@ -1936,7 +1936,7 @@ void RigPanel::drawRack (juce::Graphics& g) const
         const bool rackOn = dlyOn.getToggleState() || revOn.getToggleState() || irvOn.getToggleState();
         const auto led = juce::Rectangle<int> (10, 10).withCentre ({ (int) logo.getX() + 6, (int) logo.getY() + 106 });
         drawLed (g, led, rackOn, juce::Colour (0xff40ff70));
-        g.setColour (LnF::silver.withAlpha (0.8f));
+        g.setColour (juce::Colour (0xffe8eaee));
         g.setFont (LnF::condensed (13.0f));
         g.drawText ("POWER", juce::Rectangle<float> (logo.getX() + 18.0f, logo.getY() + 98.0f, 60.0f, 16.0f), juce::Justification::centredLeft, false);
     }
