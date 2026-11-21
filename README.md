@@ -49,7 +49,7 @@ Source/
 ## Standalone app
 
 The project also builds a standalone Windows app (no DAW needed):
-`Builds/VisualStudio2026/x64/Release/App/JeminiGuitarRig.exe`.
+`Builds/VisualStudio2026/x64/Release/Standalone Plugin/JeminiGuitarRig.exe`.
 
 On first launch open **Options → Audio/MIDI Settings**, choose your audio
 interface (ASIO driver if available), enable the input your guitar is on
