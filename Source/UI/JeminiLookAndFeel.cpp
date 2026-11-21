@@ -145,12 +145,12 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
     {
     // Numbers 1..10 printed on the panel around the knob
     g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.88f : 0.4f));
-    g.setFont (condensed (juce::jmax (9.0f, r * 0.3f)));
+    g.setFont (condensed (juce::jmax (11.0f, r * 0.36f)));
     for (int n = 1; n <= 10; ++n)
     {
         const float a = start + (float) (n - 1) / 9.0f * (end - start);
         const auto p = polar (c, r * 0.9f, a);
-        g.drawText (juce::String (n), juce::Rectangle<float> (r * 0.36f, r * 0.24f).withCentre (p),
+        g.drawText (juce::String (n), juce::Rectangle<float> (r * 0.46f, r * 0.32f).withCentre (p),
                     juce::Justification::centred, false);
     }
     }
@@ -464,7 +464,7 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "presetButton")
     {
         g.setColour (cream.withAlpha (highlighted ? 1.0f : 0.85f));
-        g.setFont (condensed (button.getButtonText().length() > 1 ? 14.0f : 17.0f));
+        g.setFont (condensed (button.getButtonText().length() > 1 ? 16.0f : 18.0f));
         g.drawText (button.getButtonText(), button.getLocalBounds().translated (0, down ? 1 : 0), juce::Justification::centred, false);
         return;
     }
@@ -472,7 +472,7 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "inputSelect")
     {
         g.setColour (button.getToggleState() ? cream : silver.withAlpha (highlighted ? 0.8f : 0.5f));
-        g.setFont (condensed (14.0f));
+        g.setFont (condensed (16.0f));
         g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
         return;
     }
@@ -488,7 +488,7 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "rackSelect")
     {
         const bool selected = button.getToggleState();
-        g.setFont (condensed (15.0f));
+        g.setFont (condensed (16.5f));
         drawPrintedText (g, button.getButtonText(), button.getLocalBounds().withTrimmedLeft (2).toFloat(),
                          juce::Justification::centredLeft,
                          selected ? juce::Colours::white : labelWhite.withAlpha (highlighted ? 1.0f : 0.85f));
@@ -580,7 +580,7 @@ void JeminiLookAndFeel::drawMiniToggle (juce::Graphics& g, juce::ToggleButton& b
 
     // Label
     auto textColour = button.findColour (juce::ToggleButton::textColourId);
-    g.setFont (condensed (juce::jmin (16.0f, area.getHeight() * 0.8f)));
+    g.setFont (condensed (juce::jmin (17.5f, area.getHeight() * 0.86f)));
     drawPrintedText (g, button.getButtonText(), area.withTrimmedLeft (5.0f), juce::Justification::centredLeft,
                      highlighted ? textColour.brighter (0.3f) : textColour);
 }
@@ -697,13 +697,13 @@ void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
 
 juce::Font JeminiLookAndFeel::getTextButtonFont (juce::TextButton&, int buttonHeight)
 {
-    return condensed (juce::jmin (17.0f, (float) buttonHeight * 0.68f));
+    return condensed (juce::jmin (18.0f, (float) buttonHeight * 0.78f));
 }
 
 juce::Label* JeminiLookAndFeel::createSliderTextBox (juce::Slider& slider)
 {
     auto* l = LookAndFeel_V4::createSliderTextBox (slider);
-    l->setFont (condensed (15.0f));
+    l->setFont (condensed (16.5f));
     l->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
     l->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
     return l;
@@ -727,7 +727,7 @@ void JeminiLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, 
 
 juce::Font JeminiLookAndFeel::getComboBoxFont (juce::ComboBox&)
 {
-    return condensed (14.0f);
+    return condensed (16.0f);
 }
 
 //==============================================================================
