@@ -613,8 +613,7 @@ void RigPanel::paint (juce::Graphics& g)
     // ---- Pedals ----
     drawPedal (g, vibeArea.toFloat(), vibePurpleTop, vibePurpleBottom);
     g.setColour (LnF::cream);
-    g.setFont (LnF::script (44.0f));
-    g.drawText ("Vibe", vibeArea.withHeight (60).translated (0, 6), juce::Justification::centred, false);
+    LnF::drawSlantedLogo (g, "VIBE", vibeArea.withHeight (60).translated (0, 6).toFloat(), 34.0f, juce::Justification::centred);
 
     g.setFont (LnF::condensed (14.0f));
     g.drawText ("CHORUS",  juce::Rectangle<int> (vibeArea.getX() + 14, vibeArea.getY() + 182, 52, 16), juce::Justification::centredRight, false);
@@ -623,8 +622,7 @@ void RigPanel::paint (juce::Graphics& g)
 
     drawPedal (g, odArea.toFloat(), goldTop, goldBottom);
     g.setColour (LnF::ink);
-    g.setFont (LnF::script (42.0f));
-    g.drawText ("Gold Drive", odArea.withHeight (54).translated (0, 4), juce::Justification::centred, false);
+    LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (0, 6).toFloat(), 30.0f, juce::Justification::centred);
     drawLed (g, odLedArea, odOn.getToggleState(), LnF::redLed);
 
     // ---- Amp, rack, bottom strip ----

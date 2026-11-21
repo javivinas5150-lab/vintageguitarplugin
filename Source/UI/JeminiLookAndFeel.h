@@ -29,7 +29,7 @@ public:
     static const juce::Colour cream, ink, panelBlack, silver, blueLed, redLed;
 
     // Embedded fonts (Resources/Fonts)
-    static juce::FontOptions script    (float height);   // Yellowtail - pedal names
+    static juce::FontOptions script    (float height);   // Yellowtail - script lettering (currently unused)
     static juce::FontOptions logo      (float height);   // Days One - amp/brand logos (drawn slanted)
 
     // Draws text in the logo font with a forward slant (60s "speed" logo style)
