@@ -123,6 +123,20 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
     const float r = area.getWidth() * 0.5f;
     const float angle = start + pos * (end - start);
 
+    if (ampKnobChicken)
+    {
+        // Printed ramp under the knob: thin outline wedge growing from min (left) to max (right)
+        const float y0 = c.y + r * 0.80f, x0 = c.x - r * 0.78f, x1 = c.x + r * 0.78f, hMax = r * 0.20f;
+        juce::Path ramp;
+        ramp.startNewSubPath (x0, y0);
+        ramp.lineTo (x1, y0 - hMax * 0.5f);
+        ramp.lineTo (x1, y0 + hMax * 0.5f);
+        ramp.closeSubPath();
+        g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.85f : 0.4f));
+        g.strokePath (ramp, juce::PathStrokeType (juce::jmax (1.0f, r * 0.03f), juce::PathStrokeType::mitered));
+    }
+    else
+    {
     // Numbers 1..10 printed on the panel around the knob
     g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.88f : 0.4f));
     g.setFont (condensed (juce::jmax (9.0f, r * 0.3f)));
@@ -133,31 +147,34 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
         g.drawText (juce::String (n), juce::Rectangle<float> (r * 0.36f, r * 0.24f).withCentre (p),
                     juce::Justification::centred, false);
     }
+    }
 
     if (ampKnobChicken)
     {
         // Tall, chunky white chicken head: wide bulb, short broad pointer, visible moulded side wall
         const float u = r;
         juce::Path shape;
-        shape.startNewSubPath (-0.11f * u, -0.74f * u);
-        shape.cubicTo (-0.14f * u, -0.56f * u, -0.30f * u, -0.32f * u, -0.383f * u, -0.196f * u);
+        shape.startNewSubPath (-0.13f * u, -0.70f * u);
+        shape.cubicTo (-0.16f * u, -0.54f * u, -0.30f * u, -0.32f * u, -0.383f * u, -0.196f * u);
         shape.addArc (-0.46f * u, -0.40f * u, 0.92f * u, 0.92f * u,
                       -0.98f, -juce::MathConstants<float>::twoPi + 0.98f, false);
-        shape.cubicTo (0.30f * u, -0.32f * u, 0.14f * u, -0.56f * u, 0.11f * u, -0.74f * u);
-        shape.quadraticTo (0.0f, -0.80f * u, -0.11f * u, -0.74f * u);
+        shape.cubicTo (0.30f * u, -0.32f * u, 0.16f * u, -0.54f * u, 0.13f * u, -0.70f * u);
+        shape.cubicTo (0.11f * u, -0.80f * u, -0.11f * u, -0.80f * u, -0.13f * u, -0.70f * u);
         shape.closeSubPath();
         shape.applyTransform (juce::AffineTransform::rotation (angle));
 
-        const float height = r * 0.16f;                       // how tall the knob stands off the panel
+        const float height = r * 0.20f;                       // how tall the knob stands off the panel
         const auto  base   = shape.createPathWithRoundedCorners (0.0f);
-        auto at = [&base] (juce::Point<float> p) { juce::Path q (base); q.applyTransform (juce::AffineTransform::translation (p)); return q; };
+        auto at = [&base] (juce::Point<float> p, float k = 1.0f)
+        { juce::Path q (base); q.applyTransform (juce::AffineTransform::scale (k).translated (p)); return q; };
+        const float taper = 1.13f;                          // base of the knob is wider than its top (conical sides)
 
         const auto topC = c.translated (0.0f, -height * 0.55f);   // top face sits up, side wall shows below
         const auto botC = c.translated (0.0f,  height * 0.45f);
 
         // Contact shadow + soft cast shadow
         juce::DropShadow (juce::Colours::black.withAlpha (0.85f), (int) (r * 0.18f),
-                          { (int) std::round (r * 0.06f), (int) std::round (r * 0.12f) }).drawForPath (g, at (botC));
+                          { (int) std::round (r * 0.06f), (int) std::round (r * 0.12f) }).drawForPath (g, at (botC, taper));
 
         // Side wall: sweep the outline from the base up to the top face
         const int steps = juce::jmax (6, (int) height);
@@ -170,7 +187,7 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
                                        juce::Colour (0xff9b978c).interpolatedWith (juce::Colour (0xff5e5a52), 1.0f - t), bounds.getCentreX() + r, pc.y, false);
             wall.addColour (0.35, juce::Colour (0xfff1eee6).interpolatedWith (juce::Colour (0xffa6a296), 1.0f - t));
             g.setGradientFill (wall);
-            g.fillPath (at (pc));
+            g.fillPath (at (pc, taper + (1.0f - taper) * t));
         }
 
         // Top face: bright moulded plastic, lit from the upper left; fixed lighting while turning
