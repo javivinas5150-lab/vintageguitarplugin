@@ -867,7 +867,7 @@ void RigPanel::buildTextures()
     tolex       = sk.covering == Skin::Covering::tweed ? realism::makeTweed (256, sk.covering1, sk.covering2, 7)
                                                        : realism::makeTolex (256, sk.covering1, 7, 1.9f, true);
     ampGrille   = makeWheatGrille (896 * 2, 112 * 2, 2.0f, 11, sk);
-    cabGrille   = makeWheatGrille (500 * 2, 158 * 2, 2.0f, 13, sk);
+    cabGrille   = makeWheatGrille (450 * 2, 158 * 2, 2.0f, 13, sk);   // exact size of cabGrilleArea, same weave scale as the head
     brushedRack = realism::makeBrushed (512, 256, sk.rackFace, 5.0f, 21);
     brushedDark = realism::makeBrushed (512, 256, sk.subPanel, 4.0f, 23);
     brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25);
@@ -2039,18 +2039,19 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
 
     // Cabinet grille (recessed, with piping)
     const auto grille = cabGrilleArea.toFloat();
+    g.setOpacity (1.0f);   // drawImage uses the current colour's alpha; the screws leave it translucent
     g.drawImage (cabGrille, grille, juce::RectanglePlacement::stretchToFit);
 
     // Two speakers faintly visible through the cloth (2x12)
     for (float cx : { grille.getX() + grille.getWidth() * 0.27f, grille.getX() + grille.getWidth() * 0.73f })
     {
         const auto c = juce::Point<float> (cx, grille.getCentreY() + 6.0f);
-        juce::ColourGradient cone (juce::Colours::black.withAlpha (0.45f), c,
+        juce::ColourGradient cone (juce::Colours::black.withAlpha (0.16f), c,
                                    juce::Colours::black.withAlpha (0.0f), c.translated (0.0f, 76.0f), true);
-        cone.addColour (0.8, juce::Colours::black.withAlpha (0.2f));
+        cone.addColour (0.8, juce::Colours::black.withAlpha (0.07f));
         g.setGradientFill (cone);
         g.fillEllipse (juce::Rectangle<float> (152.0f, 152.0f).withCentre (c));
-        g.setColour (juce::Colours::black.withAlpha (0.25f));
+        g.setColour (juce::Colours::black.withAlpha (0.08f));
         g.drawEllipse (juce::Rectangle<float> (40.0f, 40.0f).withCentre (c), 3.0f);
         g.setColour (juce::Colours::white.withAlpha (0.04f));
         g.drawEllipse (juce::Rectangle<float> (150.0f, 150.0f).withCentre (c.translated (-1.0f, -1.5f)), 2.0f);
