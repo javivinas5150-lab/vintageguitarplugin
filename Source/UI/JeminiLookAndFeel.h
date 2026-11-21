@@ -29,7 +29,12 @@ public:
     static const juce::Colour cream, ink, panelBlack, silver, blueLed, redLed;
 
     // Embedded fonts (Resources/Fonts)
-    static juce::FontOptions script    (float height);   // Yellowtail - logos
+    static juce::FontOptions script    (float height);   // Yellowtail - pedal names
+    static juce::FontOptions logo      (float height);   // Days One - amp/brand logos (drawn slanted)
+
+    // Draws text in the logo font with a forward slant (60s "speed" logo style)
+    static void drawSlantedLogo (juce::Graphics&, const juce::String& text, juce::Rectangle<float> area,
+                                 float height, juce::Justification just, float slant = 0.22f);
     static juce::FontOptions condensed (float height);   // Oswald - panel lettering
     static juce::FontOptions display   (float height);   // Share Tech Mono - rack display
 

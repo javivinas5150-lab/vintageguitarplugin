@@ -607,8 +607,7 @@ void RigPanel::paint (juce::Graphics& g)
         g.drawHorizontalLine (titleBar.getBottom() - 2, 0.0f, (float) designWidth);
 
         g.setColour (juce::Colour (0xffe9d9b0));
-        g.setFont (LnF::script (40.0f));
-        g.drawText ("Jemini Guitar Rig", titleBar.withTrimmedTop (2), juce::Justification::centred, false);
+        LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", titleBar.toFloat(), 26.0f, juce::Justification::centred);
     }
 
     // ---- Pedals ----
@@ -749,9 +748,8 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
 
     // Script logo + model plate
     g.setColour (LnF::cream);
-    g.setFont (LnF::script (44.0f));
-    g.drawText ("Jemini", juce::Rectangle<float> (logoX + 20.0f, panel.getY() + 6.0f, 200.0f, 56.0f),
-                juce::Justification::centredLeft, false);
+    LnF::drawSlantedLogo (g, "JEMINI", juce::Rectangle<float> (logoX + 22.0f, panel.getY() + 14.0f, 220.0f, 46.0f),
+                          34.0f, juce::Justification::centredLeft);
     g.setFont (LnF::condensed (15.0f));
     g.drawText ("BLACK PANEL  '65", juce::Rectangle<float> (logoX + 30.0f, panel.getY() + 64.0f, 200.0f, 18.0f),
                 juce::Justification::centredLeft, false);
@@ -779,11 +777,10 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
 
     // Chrome script logo on the grille
     const auto logoArea = juce::Rectangle<float> (grille.getX() + 30.0f, grille.getY() + 18.0f, 300.0f, 80.0f);
-    g.setFont (LnF::script (66.0f));
     g.setColour (juce::Colours::black.withAlpha (0.55f));
-    g.drawText ("Jemini", logoArea.translated (3.0f, 4.0f), juce::Justification::centredLeft, false);
+    LnF::drawSlantedLogo (g, "JEMINI", logoArea.translated (3.0f, 4.0f), 52.0f, juce::Justification::centredLeft);
     g.setColour (juce::Colour (0xffe6e8eb));
-    g.drawText ("Jemini", logoArea, juce::Justification::centredLeft, false);
+    LnF::drawSlantedLogo (g, "JEMINI", logoArea, 52.0f, juce::Justification::centredLeft);
 
     // Model tag (cream label plate)
     const auto tag = modelTagArea.toFloat();

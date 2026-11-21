@@ -48,6 +48,7 @@
       <FILE id="fFntYt" name="Yellowtail-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/Yellowtail-Regular.ttf"/>
       <FILE id="fFntOs" name="Oswald-Variable.ttf" compile="0" resource="1" file="Resources/Fonts/Oswald-Variable.ttf"/>
       <FILE id="fFntSt" name="ShareTechMono-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/ShareTechMono-Regular.ttf"/>
+      <FILE id="fFntDo" name="DaysOne-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/DaysOne-Regular.ttf"/>
     </GROUP>
     <GROUP id="gNam001" name="NAM">
       <FILE id="f7c7c10" name="activations.cpp" compile="1" resource="0"

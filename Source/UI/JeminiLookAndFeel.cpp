@@ -26,6 +26,12 @@ namespace
         return tf;
     }
 
+    juce::Typeface::Ptr logoFace()
+    {
+        static auto tf = loadFont (BinaryData::DaysOneRegular_ttf, BinaryData::DaysOneRegular_ttfSize);
+        return tf;
+    }
+
     juce::Typeface::Ptr condensedFace()
     {
         static auto tf = loadFont (BinaryData::OswaldVariable_ttf, BinaryData::OswaldVariable_ttfSize);
@@ -40,6 +46,19 @@ namespace
 }
 
 juce::FontOptions JeminiLookAndFeel::script (float h)    { return juce::FontOptions (scriptFace()).withHeight (h); }
+juce::FontOptions JeminiLookAndFeel::logo (float h)      { return juce::FontOptions (logoFace()).withHeight (h); }
+
+void JeminiLookAndFeel::drawSlantedLogo (juce::Graphics& g, const juce::String& text, juce::Rectangle<float> area,
+                                         float height, juce::Justification just, float slant)
+{
+    // Shear around the vertical centre so the text leans right without drifting sideways
+    const float cy = area.getCentreY();
+    juce::Graphics::ScopedSaveState state (g);
+    g.addTransform (juce::AffineTransform::shear (-slant, 0.0f).translated (slant * cy, 0.0f));
+    g.setFont (juce::Font (logo (height)).withExtraKerningFactor (0.04f));
+    g.drawText (text, area, just, false);
+}
+
 juce::FontOptions JeminiLookAndFeel::condensed (float h) { return juce::FontOptions (condensedFace()).withHeight (h); }
 juce::FontOptions JeminiLookAndFeel::display (float h)   { return juce::FontOptions (displayFace()).withHeight (h); }
 
