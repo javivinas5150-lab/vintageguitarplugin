@@ -70,7 +70,7 @@ namespace skins
                 s.vibeTop = juce::Colour (0xff4a3a62); s.vibeBottom = juce::Colour (0xff241a33); s.vibeText = juce::Colour (0xffe9dfc6);
                 s.goldTop = juce::Colour (0xffe4c46e); s.goldBottom = juce::Colour (0xffa9822f); s.goldText = juce::Colour (0xff1a1714);
                 s.namTop = juce::Colour (0xff3f4a44); s.namBottom = juce::Colour (0xff1a201d); s.namText = juce::Colour (0xffe9dfc6);
-                s.rackFace = juce::Colour (0xff1e2333); s.rackAccent = juce::Colour (0xff3fb6ff);
+                s.rackFace = juce::Colour (0xff101114); s.rackAccent = juce::Colour (0xff2ea6ff);
                 s.rackTitle = juce::Colour (0xfff4f5f7); s.display = juce::Colour (0xffff3a2a); s.displayGlass = juce::Colour (0xff240a07);
                 s.subPanel = juce::Colour (0xff1d1d21);
                 v.push_back (s);

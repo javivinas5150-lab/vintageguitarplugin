@@ -1977,12 +1977,23 @@ void RigPanel::drawRack (juce::Graphics& g) const
     g.setColour (juce::Colours::white.withAlpha (0.10f));
     g.drawVerticalLine (dx + 1, face.getY() + 10.0f, face.getBottom() - 26.0f);
 
-    // Blue stripe (printed, slight gloss)
-    const auto stripe = juce::Rectangle<float> (disp.getX(), face.getBottom() - 18.0f, face.getRight() - disp.getX() - 10.0f, 9.0f);
-    const auto stripeColour = sk.rackAccent.withMultipliedSaturation (1.1f).withMultipliedBrightness (0.8f);
-    juce::ColourGradient blue (stripeColour.brighter (0.35f), stripe.getX(), stripe.getY(), stripeColour.darker (0.4f), stripe.getX(), stripe.getBottom(), false);
-    g.setGradientFill (blue);
-    g.fillRect (stripe);
+    // Accent lines: a bold printed stripe with a pinstripe above it, plus a
+    // hairline under the top edge. Saturated, with a faint glow on the black.
+    const auto stripeColour = sk.rackAccent.withMultipliedSaturation (1.25f);
+    auto drawLine = [&g, stripeColour] (juce::Rectangle<float> r, float glow)
+    {
+        g.setColour (stripeColour.withAlpha (glow));
+        g.fillRoundedRectangle (r.expanded (2.5f), 3.0f);
+        juce::ColourGradient grad (stripeColour.brighter (0.45f), r.getX(), r.getY(), stripeColour.darker (0.25f), r.getX(), r.getBottom(), false);
+        g.setGradientFill (grad);
+        g.fillRect (r);
+        g.setColour (juce::Colours::white.withAlpha (0.25f));
+        g.drawHorizontalLine ((int) r.getY(), r.getX(), r.getRight());
+    };
+    const float stripeX = disp.getX(), stripeW = face.getRight() - disp.getX() - 10.0f;
+    drawLine ({ stripeX, face.getBottom() - 19.0f, stripeW, 10.0f }, 0.22f);
+    drawLine ({ stripeX, face.getBottom() - 6.0f, stripeW, 2.0f }, 0.15f);
+    drawLine ({ face.getX() + 10.0f, face.getY() + 7.0f, face.getWidth() - 20.0f, 2.0f }, 0.12f);
 }
 
 //------------------------------------------------------------------------------
