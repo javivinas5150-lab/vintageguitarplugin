@@ -33,6 +33,8 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     odOn     = apvts.getRawParameterValue ("odOn");
     odGain   = apvts.getRawParameterValue ("odGain");
     odType     = apvts.getRawParameterValue ("odType");
+    tunerOn    = apvts.getRawParameterValue ("tunerOn");
+    tunerRef   = apvts.getRawParameterValue ("tunerRef");
     pnamInput  = apvts.getRawParameterValue ("pnamInput");
     pnamTone   = apvts.getRawParameterValue ("pnamTone");
     pnamOutput = apvts.getRawParameterValue ("pnamOutput");
@@ -279,6 +281,14 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addDbRange ("pnamTone",   "NAM Pedal Tone",   -12.0f, 12.0f, 0.0f);
     addDbRange ("pnamOutput", "NAM Pedal Output", -24.0f, 12.0f, 0.0f);
 
+    // Chromatic tuner
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "tunerOn", 1 }, "Tuner (mutes output)", false));
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "tunerRef", 1 }, "Tuner Reference A4",
+        juce::NormalisableRange<float> (425.0f, 455.0f, 1.0f), 440.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+
     // Rack: Delay
     const auto addFloat = [&layout] (const juce::String& id, const juce::String& name,
                                      float min, float max, float def, float centre,
@@ -337,6 +347,7 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
     irVerb.prepare (sampleRate, samplesPerBlock);
     monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
+    tuner.prepare (sampleRate);
     pedalNam.prepare (sampleRate, samplesPerBlock);
     pedalTone.prepare (sampleRate);
     pedalInGain.reset  (sampleRate, 0.05);
@@ -393,6 +404,9 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // 1) Input gain
     inputGain.applyGain (mono, numSamples);
+
+    // The tuner listens to the clean guitar (cheap copy, always running)
+    tuner.push (mono, numSamples);
 
     // 2) Noise gate, part 1: listen to the clean guitar (before pedals and amp)
     const bool gateEnabled = gateOn->load() > 0.5f;
@@ -519,6 +533,10 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // 8) Output gain
     outputGain.applyGain (buffer, numSamples);
+
+    // Silent while tuning (like a real tuner pedal's mute)
+    if (tunerOn->load() > 0.5f)
+        buffer.clear();
 
     // Peak levels for the OUTPUT meter (the GUI reads and resets them)
     for (int ch = 0; ch < juce::jmin (2, buffer.getNumChannels()); ++ch)

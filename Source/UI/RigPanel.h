@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "../PluginProcessor.h"
+#include "TunerOverlay.h"
 
 //==============================================================================
 // RigPanel - the whole Jemini Guitar Rig front panel, drawn at a fixed design
@@ -60,6 +61,7 @@ private:
     void setRackPage (int page);
     juce::String getDisplayText() const;
     void timerCallback() override;
+    void syncTuner();
 
     // Drawing helpers
     void drawPedal (juce::Graphics&, juce::Rectangle<float>, juce::Colour top, juce::Colour bottom) const;
@@ -70,6 +72,11 @@ private:
     void drawBottomStrip (juce::Graphics&) const;
     void drawSubPanel (juce::Graphics&, juce::Rectangle<int>, const juce::String& title) const;
     void buildTextures();
+public:
+    void applySkin (int index);     // rebuild materials for a skin (see Skins.h)
+private:
+    const struct Skin& skin() const;
+    int skinIndex = 0, texturesSkin = -1;
     void buildBackdrop();   // background + soft shadows, cached once after layout
     void drawMountedShadows (juce::Graphics&, juce::Rectangle<int> within) const;
 
@@ -84,7 +91,7 @@ private:
     std::array<juce::Rectangle<int>, 3> rackLedAreas;
 
     // Textures (generated once)
-    juce::Image tolex, ampGrille, cabGrille, brushedRack, brushedDark, brushedAlu, flakes, paper, wall, backdrop, mountedShadows;
+    juce::Image tolex, ampGrille, cabGrille, brushedRack, brushedDark, brushedAlu, flakes, paper, wall, backdrop, mountedShadows, brushedPanel;
 
     //==========================================================================
     // Pedals
@@ -139,6 +146,12 @@ private:
     // Files
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File lastNamFolder, lastCabFolder, lastIRVFolder, lastPedalFolder;
+
+    // Title bar + tuner (declared last: needs audioProcessor)
+    juce::ComboBox skinBox;
+    juce::TextButton tunerButton { "TUNER" };
+    std::unique_ptr<ButtonAttachment> tunerAttachment;
+    TunerOverlay tunerOverlay { audioProcessor };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RigPanel)
 };

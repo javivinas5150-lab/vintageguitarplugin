@@ -124,7 +124,7 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
     const float angle = start + pos * (end - start);
 
     // Numbers 1..10 printed on the panel around the knob
-    g.setColour (cream.withAlpha (enabled ? 0.85f : 0.4f));
+    g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.88f : 0.4f));
     g.setFont (condensed (juce::jmax (9.0f, r * 0.3f)));
     for (int n = 1; n <= 10; ++n)
     {
@@ -157,8 +157,8 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
 
     // Black bakelite cap: shadow on the skirt, knurled edge, glossy top
     realism::softShadowEllipse (g, c, capR, capR * 0.25f, { capR * 0.05f, capR * 0.15f }, 0.4f);
-    juce::ColourGradient cap (juce::Colour (0xff47474c), c.translated (-capR * 0.4f, -capR * 0.6f),
-                              juce::Colour (0xff050506), c.translated (capR * 0.5f, capR * 0.7f), true);
+    juce::ColourGradient cap (ampKnobCap.interpolatedWith (juce::Colours::white, 0.25f), c.translated (-capR * 0.4f, -capR * 0.6f),
+                              ampKnobCap.interpolatedWith (juce::Colours::black, 0.6f), c.translated (capR * 0.5f, capR * 0.7f), true);
     g.setGradientFill (cap);
     g.fillEllipse (juce::Rectangle<float> (capR * 2.0f, capR * 2.0f).withCentre (c));
     g.setColour (juce::Colours::white.withAlpha (0.09f));
@@ -169,8 +169,9 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
     }
     realism::specular (g, c, capR, 0.35f);
 
-    // Pointer line
-    g.setColour (juce::Colours::white.withAlpha (enabled ? 0.95f : 0.5f));
+    // Pointer line (dark on light caps)
+    const bool lightCap = ampKnobCap.getPerceivedBrightness() > 0.5f;
+    g.setColour ((lightCap ? juce::Colour (0xff1a1410) : juce::Colours::white).withAlpha (enabled ? 0.95f : 0.5f));
     g.drawLine ({ polar (c, capR * 0.2f, angle), polar (c, skirtR * 0.97f, angle) }, juce::jmax (1.5f, r * 0.06f));
 }
 
@@ -198,7 +199,7 @@ void JeminiLookAndFeel::drawRackKnob (juce::Graphics& g, juce::Rectangle<float> 
     value.addCentredArc (c.x, c.y, arcR, arcR, 0.0f, start, angle, true);
     g.setColour (juce::Colours::black.withAlpha (0.6f));
     g.strokePath (track, juce::PathStrokeType (r * 0.08f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-    g.setColour (enabled ? blueLed.withAlpha (0.85f) : silver.withAlpha (0.3f));
+    g.setColour (enabled ? rackAccent.withAlpha (0.9f) : silver.withAlpha (0.3f));
     g.strokePath (value, juce::PathStrokeType (r * 0.08f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
     // Knurled body
@@ -318,6 +319,14 @@ void JeminiLookAndFeel::drawModeSwitch (juce::Graphics& g, juce::ToggleButton& b
 
 void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool highlighted, bool down)
 {
+    if (button.getProperties()["style"].toString() == "tunerButton")
+    {
+        g.setColour (button.getToggleState() ? juce::Colour (0xffeafff0) : cream.withAlpha (highlighted ? 1.0f : 0.85f));
+        g.setFont (condensed (16.0f));
+        g.drawText (button.getButtonText(), button.getLocalBounds().withTrimmedLeft (20), juce::Justification::centred, false);
+        return;
+    }
+
     if (button.getProperties()["style"].toString() == "rackSelect")
     {
         const bool selected = button.getToggleState();
@@ -422,8 +431,41 @@ void JeminiLookAndFeel::drawMiniToggle (juce::Graphics& g, juce::ToggleButton& b
 void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& button,
                                               const juce::Colour&, bool highlighted, bool down)
 {
-    if (button.getProperties()["style"].toString() == "rackSelect")
+    const auto style = button.getProperties()["style"].toString();
+    if (style == "rackSelect")
         return; // flat text only
+
+    if (style == "tunerButton")
+    {
+        auto r = button.getLocalBounds().toFloat().reduced (1.0f);
+        const bool on = button.getToggleState();
+        const float rad = r.getHeight() * 0.5f;
+
+        g.setGradientFill (realism::chrome (r));
+        g.fillRoundedRectangle (r, rad);
+        const auto inner = r.reduced (2.0f);
+        juce::ColourGradient body (juce::Colour (down ? 0xff111113 : (highlighted ? 0xff2e2e33 : 0xff232327)), inner.getX(), inner.getY(),
+                                   juce::Colour (0xff0a0a0b), inner.getX(), inner.getBottom(), false);
+        g.setGradientFill (body);
+        g.fillRoundedRectangle (inner, rad - 2.0f);
+        realism::bevel (g, inner, rad - 2.0f, 1.2f, 0.25f, 0.5f);
+
+        // Status lamp
+        const auto lc = juce::Point<float> (inner.getX() + rad, inner.getCentreY());
+        const auto lamp = juce::Colour (0xff59f28a);
+        if (on)
+        {
+            juce::ColourGradient spill (lamp.withAlpha (0.6f), lc, lamp.withAlpha (0.0f), lc.translated (14.0f, 0.0f), true);
+            g.setGradientFill (spill);
+            g.fillEllipse (juce::Rectangle<float> (28.0f, 28.0f).withCentre (lc));
+        }
+        juce::ColourGradient lens (on ? lamp.brighter (0.7f) : lamp.darker (3.0f), lc.translated (-1.5f, -1.5f),
+                                   on ? lamp.darker (0.3f) : lamp.darker (4.5f), lc.translated (5.0f, 5.0f), true);
+        g.setGradientFill (lens);
+        g.fillEllipse (juce::Rectangle<float> (10.0f, 10.0f).withCentre (lc));
+        realism::specular (g, lc, 5.0f, 0.6f);
+        return;
+    }
     auto r = button.getLocalBounds().toFloat().reduced (0.5f);
 
     juce::ColourGradient grad (juce::Colour (down ? 0xff1a1a1d : (highlighted ? 0xff3e3e44 : 0xff34343a)), r.getTopLeft(),

@@ -64,3 +64,19 @@ pedal. The NAM pedal keeps the capture's real level (no loudness
 normalisation) and has INPUT, TONE (treble shelf) and OUTPUT controls. The
 footswitch turns whichever pedal is selected on or off; the model path is
 saved with the project.
+
+## Skins
+
+Four complete looks, chosen from the **SKIN** menu in the title bar (saved
+with the project): Blackface, Tweed, Blonde and Midnight.
+
+![Skins](docs/skins.png)
+
+## Chromatic tuner
+
+Click **TUNER** in the title bar: a back-lit analog meter (±50 cents) with a
+damped needle, note + octave + frequency, flat / in-tune / sharp lamps and an
+adjustable A4 reference (425–455 Hz). The output is muted while tuning. Close
+with CLOSE, the TUNER button, or by clicking outside the unit.
+
+![Tuner](docs/tuner.png)

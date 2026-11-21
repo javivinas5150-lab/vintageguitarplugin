@@ -20,6 +20,8 @@
       <GROUP id="gMods01" name="Modules">
         <FILE id="fc95082" name="NamAmp.h" compile="0" resource="0" file="Source/Modules/NamAmp.h"/>
         <FILE id="f1f868c" name="NamAmp.cpp" compile="1" resource="0" file="Source/Modules/NamAmp.cpp"/>
+        <FILE id="fTunH01" name="Tuner.h" compile="0" resource="0" file="Source/Modules/Tuner.h"/>
+        <FILE id="fTunC01" name="Tuner.cpp" compile="1" resource="0" file="Source/Modules/Tuner.cpp"/>
         <FILE id="fTnStH" name="ToneStack.h" compile="0" resource="0" file="Source/Modules/ToneStack.h"/>
         <FILE id="fTnStC" name="ToneStack.cpp" compile="1" resource="0" file="Source/Modules/ToneStack.cpp"/>
         <FILE id="fNGateH" name="NoiseGate.h" compile="0" resource="0" file="Source/Modules/NoiseGate.h"/>
@@ -44,6 +46,9 @@
       <FILE id="fUiLfH" name="JeminiLookAndFeel.h" compile="0" resource="0" file="Source/UI/JeminiLookAndFeel.h"/>
       <FILE id="fUiLfC" name="JeminiLookAndFeel.cpp" compile="1" resource="0" file="Source/UI/JeminiLookAndFeel.cpp"/>
       <FILE id="fUiReH" name="Realism.h" compile="0" resource="0" file="Source/UI/Realism.h"/>
+      <FILE id="fUiSkH" name="Skins.h" compile="0" resource="0" file="Source/UI/Skins.h"/>
+      <FILE id="fUiTuH" name="TunerOverlay.h" compile="0" resource="0" file="Source/UI/TunerOverlay.h"/>
+      <FILE id="fUiTuC" name="TunerOverlay.cpp" compile="1" resource="0" file="Source/UI/TunerOverlay.cpp"/>
     </GROUP>
     <GROUP id="gRes001" name="Resources">
       <FILE id="fFntYt" name="Yellowtail-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/Yellowtail-Regular.ttf"/>

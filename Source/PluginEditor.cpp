@@ -13,6 +13,7 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
 {
     setLookAndFeel (&lookAndFeel);
     panel.setLookAndFeel (&lookAndFeel);
+    panel.applySkin (audioProcessor.getSkin());
     addAndMakeVisible (panel);
 
     constexpr int w = RigPanel::designWidth, h = RigPanel::designHeight;

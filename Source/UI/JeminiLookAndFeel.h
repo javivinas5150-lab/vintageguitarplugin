@@ -30,7 +30,10 @@ public:
 
     // Embedded fonts (Resources/Fonts)
     static juce::FontOptions script    (float height);   // Yellowtail - script lettering (currently unused)
-    static juce::FontOptions logo      (float height);   // Days One - amp/brand logos (drawn slanted)
+    static juce::FontOptions logo      (float height);
+
+    // Skin-dependent colours (set by RigPanel::applySkin)
+    juce::Colour ampKnobCap { 0xff0a0a0b }, ampKnobNumbers { 0xffe9dfc6 }, rackAccent { 0xff3fb6ff };   // Days One - amp/brand logos (drawn slanted)
 
     // Draws text in the logo font with a forward slant (60s "speed" logo style)
     static void drawSlantedLogo (juce::Graphics&, const juce::String& text, juce::Rectangle<float> area,

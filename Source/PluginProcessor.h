@@ -10,6 +10,7 @@
 #include "Modules/StereoDelay.h"
 #include "Modules/LexReverb.h"
 #include "Modules/IRVerb.h"
+#include "Modules/Tuner.h"
 
 //==============================================================================
 // Jemini Guitar Rig
@@ -71,6 +72,14 @@ public:
     juce::String loadPedalModel (const juce::File& file);
     void clearPedalModel();
     const NamAmp& getPedalNam() const { return pedalNam; }
+
+    // Chromatic tuner (GUI thread). Output is muted while the tuner is on.
+    Tuner::Reading readTuner() { return tuner.analyse (tunerRef->load()); }
+    bool isTunerOn() const { return tunerOn->load() > 0.5f; }
+
+    // Skin index (GUI look), saved with the project / app settings
+    int getSkin() const { return (int) apvts.state.getProperty ("skin", 0); }
+    void setSkin (int index) { apvts.state.setProperty ("skin", index, nullptr); }
     bool isGateClosing() const { return gateOn->load() > 0.5f && noiseGate.isGating(); }
 
     // Cabinet IR (message thread). Returns "" on success.
@@ -123,6 +132,9 @@ private:
     std::atomic<float>* odTreble = nullptr;
     std::atomic<float>* odOutput = nullptr;
     std::atomic<float>* odType   = nullptr;   // 0 = Gold Drive, 1 = NAM pedal
+    std::atomic<float>* tunerOn  = nullptr;
+    std::atomic<float>* tunerRef = nullptr;
+    Tuner tuner;
     std::atomic<float>* pnamInput  = nullptr;
     std::atomic<float>* pnamTone   = nullptr;
     std::atomic<float>* pnamOutput = nullptr;

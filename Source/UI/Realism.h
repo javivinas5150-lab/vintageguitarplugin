@@ -104,6 +104,42 @@ namespace realism
     }
 
     //--------------------------------------------------------------------------
+    // Lacquered tweed: diagonal twill of light and dark yarns, slub texture and
+    // an amber lacquer tint. Tiles seamlessly when size is a multiple of 8.
+    inline juce::Image makeTweed (int size, juce::Colour lightYarn, juce::Colour darkYarn, int seed)
+    {
+        juce::Random rnd (seed);
+        Field slub (size, size);
+        slub.randomise (rnd);
+        slub.blurH (3); slub.blurV (1);
+        slub.normalise();
+
+        juce::Image img (juce::Image::RGB, size, size, false);
+        juce::Image::BitmapData bd (img, juce::Image::BitmapData::writeOnly);
+
+        for (int y = 0; y < size; ++y)
+            for (int x = 0; x < size; ++x)
+            {
+                // 2/2 twill: diagonal bands, each yarn 2 px wide
+                const int d = ((x + y) / 2) & 3;
+                const bool warpOnTop = (((x / 2) + (y / 2)) & 1) != 0;
+                float t = (d < 2) ? 0.85f : 0.2f;                 // light vs dark diagonal
+                t += warpOnTop ? 0.08f : -0.08f;                   // weave relief
+                t += slub.at (x, y) * 0.12f + (rnd.nextFloat() - 0.5f) * 0.18f;
+
+                // yarn shading: each 2 px yarn is lit on its upper-left pixel
+                const float lit = ((x + y) & 1) == 0 ? 10.0f : -8.0f;
+                auto c = darkYarn.interpolatedWith (lightYarn, juce::jlimit (0.0f, 1.0f, t));
+                bd.setPixelColour (x, y, shade (c, lit));
+            }
+
+        // Amber lacquer glaze
+        juce::Graphics g (img);
+        g.fillAll (juce::Colour (0xffb07020).withAlpha (0.12f));
+        return img;
+    }
+
+    //--------------------------------------------------------------------------
     // Brushed metal: long horizontal streaks + fine grain
     inline juce::Image makeBrushed (int w, int h, juce::Colour base, float amount, int seed)
     {
