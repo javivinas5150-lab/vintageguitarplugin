@@ -73,7 +73,7 @@ public:
 private:
     void drawBlackfaceKnob (juce::Graphics&, juce::Rectangle<float> area, float pos, float start, float end, bool enabled);
     void drawRackKnob      (juce::Graphics&, juce::Rectangle<float> area, float pos, float start, float end, bool enabled);
-    void drawPedalKnob     (juce::Graphics&, juce::Rectangle<float> area, float pos, float start, float end, bool lightBody);
+    void drawPedalKnob     (juce::Graphics&, juce::Rectangle<float> area, float pos, float start, float end, bool lightBody, juce::Colour bodyColour = {});
 
     void drawFootswitch    (juce::Graphics&, juce::Rectangle<float> area, bool down);
     void drawMiniToggle    (juce::Graphics&, juce::ToggleButton&, bool highlighted);

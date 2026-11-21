@@ -109,7 +109,12 @@ void JeminiLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int w
                            .withSizeKeepingCentre (size, size);
 
     if (style == "blackface")       drawBlackfaceKnob (g, area, pos, start, end, slider.isEnabled());
-    else if (style == "pedal")      drawPedalKnob (g, area, pos, start, end, false);
+    else if (style == "pedal")
+    {
+        const auto kc = slider.getProperties()["knobColour"];
+        drawPedalKnob (g, area, pos, start, end, false,
+                       kc.isVoid() ? juce::Colour() : juce::Colour ((juce::uint32) (juce::int64) kc));
+    }
     else if (style == "pedalLight") drawPedalKnob (g, area, pos, start, end, true);
     else                            drawRackKnob (g, area, pos, start, end, slider.isEnabled());
 }
@@ -365,7 +370,7 @@ void JeminiLookAndFeel::drawRackKnob (juce::Graphics& g, juce::Rectangle<float> 
 //------------------------------------------------------------------------------
 // Stompbox knob
 void JeminiLookAndFeel::drawPedalKnob (juce::Graphics& g, juce::Rectangle<float> area,
-                                       float pos, float start, float end, bool lightBody)
+                                       float pos, float start, float end, bool lightBody, juce::Colour bodyColour)
 {
     const auto c = area.getCentre();
     const float r = area.getWidth() * 0.5f;
@@ -382,8 +387,12 @@ void JeminiLookAndFeel::drawPedalKnob (juce::Graphics& g, juce::Rectangle<float>
     const float bodyR = r * 0.74f;
     realism::softShadowEllipse (g, c, bodyR, bodyR * 0.35f, { r * 0.06f, r * 0.18f }, 0.55f);
 
-    juce::ColourGradient body (juce::Colour (0xff3a3a3e), c.translated (-bodyR * 0.4f, -bodyR * 0.6f),
-                               juce::Colour (0xff060607), c.translated (bodyR * 0.5f, bodyR * 0.7f), true);
+    const bool tinted = ! bodyColour.isTransparent();
+    juce::ColourGradient body (tinted ? bodyColour.interpolatedWith (juce::Colours::white, 0.22f) : juce::Colour (0xff3a3a3e),
+                               c.translated (-bodyR * 0.4f, -bodyR * 0.6f),
+                               tinted ? bodyColour.interpolatedWith (juce::Colours::black, 0.72f) : juce::Colour (0xff060607),
+                               c.translated (bodyR * 0.5f, bodyR * 0.7f), true);
+    if (tinted) body.addColour (0.45, bodyColour);
     g.setGradientFill (body);
     g.fillEllipse (juce::Rectangle<float> (bodyR * 2.0f, bodyR * 2.0f).withCentre (c));
 

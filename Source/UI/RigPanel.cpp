@@ -174,6 +174,8 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     setupKnob (odGain,   "odGain",   "GAIN",   "pedal", ValueBox::none, 1, {}, ink);
     setupKnob (odTreble, "odTreble", "TREBLE", "pedal", ValueBox::none, 1, {}, ink);
     setupKnob (odOutput, "odOutput", "OUTPUT", "pedal", ValueBox::none, 1, {}, ink);
+    for (auto* k : { &odGain, &odTreble, &odOutput })      // bordeaux knobs on the Gold Drive
+        k->slider.getProperties().set ("knobColour", (juce::int64) 0xff6a1426);
     setupToggle (odOn, odOnAttachment, "odOn", "footswitch", ink);
 
     // --- NAM DRIVE (alternative pedal in the same slot) ---
