@@ -15,11 +15,12 @@ void Vibe::reset()
     lamp = 0.5f;
 }
 
-void Vibe::setParameters (float speedHz, float intensity01, bool vibratoMode)
+void Vibe::setParameters (float speedHz, float intensity01, bool vibratoMode, float depth01)
 {
     speed     = speedHz;
     intensity = juce::jlimit (0.0f, 1.0f, intensity01);
     vibrato   = vibratoMode;
+    depth     = juce::jlimit (0.0f, 1.0f, depth01);
 }
 
 void Vibe::process (float* data, int numSamples)
@@ -27,6 +28,14 @@ void Vibe::process (float* data, int numSamples)
     const double phaseInc = speed / sampleRate;
     const double maxFreq  = sampleRate * 0.45;
     const double piOverFs = juce::MathConstants<double>::pi / sampleRate;
+
+    // DEPTH (smoothed per block): sweep range and lamp throb
+    smoothedDepth += 0.3f * (depth - smoothedDepth);
+    const double rCentre   = std::sqrt (rBright * rDark);
+    const double rangeLog  = std::log (rDark / rBright) * (0.6 + 1.2 * (double) smoothedDepth);  // 25:1 at ~33 %
+    const double rLow      = rCentre * std::exp (-0.5 * rangeLog);
+    const double rHigh     = rCentre * std::exp ( 0.5 * rangeLog);
+    const float  throb     = 0.28f * smoothedDepth * intensity;     // up to about -3 dB dips
 
     for (int i = 0; i < numSamples; ++i)
     {
@@ -45,7 +54,7 @@ void Vibe::process (float* data, int numSamples)
         const float light = 0.5f + intensity * (lamp - 0.5f) * 2.0f;
 
         // LDR: resistance changes exponentially with light
-        const double r = rDark * std::pow (rBright / rDark, (double) juce::jlimit (0.0f, 1.0f, light));
+        const double r = rHigh * std::pow (rLow / rHigh, (double) juce::jlimit (0.0f, 1.0f, light));
 
         // 4 first-order all-pass stages, each at its own frequency
         const float dry = data[i];
@@ -63,7 +72,9 @@ void Vibe::process (float* data, int numSamples)
             x = y;
         }
 
-        // Chorus = dry + wet (notches), Vibrato = wet only
-        data[i] = vibrato ? x : 0.5f * (dry + x);
+        // Chorus = dry + wet (notches), Vibrato = wet only.
+        // Throb: the lamp bleeds into the level - quieter when it's dark.
+        const float level = 1.0f - throb * (1.0f - lamp);
+        data[i] = level * (vibrato ? x : 0.5f * (dry + x));
     }
 }

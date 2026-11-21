@@ -99,7 +99,7 @@ private:
 
     //==========================================================================
     // Pedals
-    Knob vibeSpeed, vibeIntensity;
+    Knob vibeSpeed, vibeIntensity, vibeDepth;
     juce::ToggleButton vibeOn, vibeMode;
     std::unique_ptr<ButtonAttachment> vibeOnAttachment, vibeModeAttachment;
 

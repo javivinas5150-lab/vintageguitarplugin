@@ -15,6 +15,8 @@
 //    exponential - that gives the vibe its lopsided, liquid sweep.
 //  - CHORUS mode mixes the dry signal with the shifted one (notches).
 //    VIBRATO mode outputs only the shifted signal (pitch wobble).
+//  - DEPTH widens how far the LDRs travel (from ~3 to ~8 octaves of sweep)
+//    and adds the lamp "throb": the slight volume pulse a real unit has.
 // Mono, real-time safe.
 //==============================================================================
 class Vibe
@@ -24,7 +26,7 @@ public:
     void reset();
 
     // Audio thread
-    void setParameters (float speedHz, float intensity01, bool vibratoMode);
+    void setParameters (float speedHz, float intensity01, bool vibratoMode, float depth01 = 0.5f);
     void process (float* data, int numSamples);
 
 private:
@@ -33,7 +35,8 @@ private:
     // Uni-Vibe stage capacitors (farads)
     static constexpr std::array<double, numStages> stageCaps { 15e-9, 220e-9, 470e-12, 4.7e-9 };
 
-    // LDR resistance range: bright lamp -> low R, dark -> high R (ohms)
+    // LDR resistance range at DEPTH ~33 %: bright lamp -> low R, dark -> high R
+    // (ohms). DEPTH scales the range around its geometric centre (10 kOhm).
     static constexpr double rBright = 2.0e3;
     static constexpr double rDark   = 50.0e3;
 
@@ -44,6 +47,7 @@ private:
 
     std::array<float, numStages> state {};
 
-    float speed = 3.0f, intensity = 0.7f;
+    float speed = 3.0f, intensity = 0.7f, depth = 0.5f;
+    float smoothedDepth = 0.5f;
     bool vibrato = false;
 };

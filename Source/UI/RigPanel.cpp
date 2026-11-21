@@ -165,8 +165,10 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     // --- VIBE pedal ---
     setupKnob (vibeSpeed,     "vibeSpeed",     "SPEED",     "pedal", ValueBox::none, 1, "Hz", cream);
     setupKnob (vibeIntensity, "vibeIntensity", "INTENSITY", "pedal", ValueBox::none, 0, "%",  cream);
+    setupKnob (vibeDepth,     "vibeDepth",     "DEPTH",     "pedal", ValueBox::none, 0, "%",  cream);
     setupToggle (vibeOn,   vibeOnAttachment,   "vibeOn",   "footswitch", cream);
     setupToggle (vibeMode, vibeModeAttachment, "vibeMode", "modeSwitch", cream);
+    vibeMode.onStateChange = [this] { repaint (vibeMode.getBounds().expanded (40, 20)); };
 
     // --- GOLD DRIVE pedal ---
     setupKnob (odGain,   "odGain",   "GAIN",   "pedal", ValueBox::none, 1, {}, ink);
@@ -890,7 +892,7 @@ void RigPanel::applySkin (int index)
 
     for (auto& k : ampKnobs)
         k.label.setColour (juce::Label::textColourId, sk.panelText);
-    for (auto* k : { &vibeSpeed, &vibeIntensity })
+    for (auto* k : { &vibeSpeed, &vibeIntensity, &vibeDepth })
         k->label.setColour (juce::Label::textColourId, sk.vibeText);
     for (auto* k : { &odGain, &odTreble, &odOutput })
         k->label.setColour (juce::Label::textColourId, sk.goldText);
@@ -937,15 +939,19 @@ void RigPanel::resized()
     // ---- VIBE pedal ----
     {
         const auto a = vibeArea;
-        const int knobSize = 74;
-        vibeSpeed.slider.setBounds     (a.getX() + 90 - knobSize / 2,  a.getY() + 62, knobSize, knobSize);
-        vibeIntensity.slider.setBounds (a.getX() + 210 - knobSize / 2, a.getY() + 62, knobSize, knobSize);
-        vibeSpeed.label.setBounds      (a.getX() + 40,  a.getY() + 136, 100, 22);
-        vibeIntensity.label.setBounds  (a.getX() + 160, a.getY() + 136, 100, 22);
+        const int knobSize = 66;
+        const std::array<int, 3> vx { 58, 150, 242 };
+        const std::array<Knob*, 3> vk { &vibeSpeed, &vibeIntensity, &vibeDepth };
+        for (size_t i = 0; i < 3; ++i)
+        {
+            vk[i]->slider.setBounds (a.getX() + vx[i] - knobSize / 2, a.getY() + 64, knobSize, knobSize);
+            vk[i]->label.setBounds  (a.getX() + vx[i] - 50, a.getY() + 134, 100, 22);
+        }
 
-        vibeMode.setBounds (a.getX() + 90 - 20, a.getY() + 178, 40, 24);
-        vibeLedArea = juce::Rectangle<int> (12, 12).withCentre ({ a.getX() + 210, a.getY() + 166 });
-        vibeOn.setBounds (juce::Rectangle<int> (40, 40).withCentre ({ a.getX() + 210, a.getY() + 194 }));
+        // CHORUS / VIBRATO switch bottom-right, footswitch centred (like the Gold Drive)
+        vibeMode.setBounds (a.getX() + 244 - 20, a.getY() + 182, 40, 24);
+        vibeLedArea = juce::Rectangle<int> (12, 12).withCentre ({ a.getX() + 150, a.getY() + 160 });
+        vibeOn.setBounds (juce::Rectangle<int> (40, 40).withCentre ({ a.getX() + 150, a.getY() + 192 }));
     }
 
     // ---- GOLD DRIVE pedal ----
@@ -1381,8 +1387,15 @@ void RigPanel::paint (juce::Graphics& g)
     LnF::drawSlantedLogo (g, "VIBE", vibeArea.withHeight (60).translated (0, 6).toFloat(), 34.0f, juce::Justification::centred);
 
     g.setFont (LnF::condensed (14.0f));
-    g.drawText ("CHORUS",  juce::Rectangle<int> (vibeArea.getX() + 14, vibeArea.getY() + 182, 52, 16), juce::Justification::centredRight, false);
-    g.drawText ("VIBRATO", juce::Rectangle<int> (vibeArea.getX() + 114, vibeArea.getY() + 182, 56, 16), juce::Justification::centredLeft, false);
+    {
+        const auto sw = vibeMode.getBounds();
+        const bool vib = vibeMode.getToggleState();
+        g.setFont (LnF::condensed (12.5f));
+        g.setColour (sk.vibeText.withAlpha (vib ? 0.55f : 1.0f));
+        g.drawText ("CHORUS",  juce::Rectangle<int> (sw.getX() - 26, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
+        g.setColour (sk.vibeText.withAlpha (vib ? 1.0f : 0.55f));
+        g.drawText ("VIBRATO", juce::Rectangle<int> (sw.getRight() - 24, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
+    }
     drawLed (g, vibeLedArea, vibeOn.getToggleState(), LnF::redLed);
 
     if (! namPedalShown)

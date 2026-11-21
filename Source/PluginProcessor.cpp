@@ -29,6 +29,7 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     vibeSpeed     = apvts.getRawParameterValue ("vibeSpeed");
     vibeIntensity = apvts.getRawParameterValue ("vibeIntensity");
     vibeMode      = apvts.getRawParameterValue ("vibeMode");
+    vibeDepth     = apvts.getRawParameterValue ("vibeDepth");
 
     odOn     = apvts.getRawParameterValue ("odOn");
     odGain   = apvts.getRawParameterValue ("odGain");
@@ -251,6 +252,11 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 70.0f,
         juce::AudioParameterFloatAttributes().withLabel ("%")));
 
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "vibeDepth", 1 }, "Vibe Depth",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 50.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("%")));
+
     layout.add (std::make_unique<juce::AudioParameterChoice> (
         juce::ParameterID { "vibeMode", 1 }, "Vibe Mode",
         juce::StringArray { "Chorus", "Vibrato" }, 0));
@@ -446,7 +452,8 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     // 3) Pedals: VIBE -> GOLD DRIVE
     if (vibeOn->load() > 0.5f)
     {
-        vibe.setParameters (vibeSpeed->load(), vibeIntensity->load() / 100.0f, vibeMode->load() > 0.5f);
+        vibe.setParameters (vibeSpeed->load(), vibeIntensity->load() / 100.0f, vibeMode->load() > 0.5f,
+                            vibeDepth->load() / 100.0f);
         vibe.process (mono, numSamples);
     }
 

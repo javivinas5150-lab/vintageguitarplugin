@@ -159,6 +159,7 @@ private:
     std::atomic<float>* vibeSpeed     = nullptr;
     std::atomic<float>* vibeIntensity = nullptr;
     std::atomic<float>* vibeMode      = nullptr;
+    std::atomic<float>* vibeDepth     = nullptr;
 
     std::atomic<float>* odOn     = nullptr;
     std::atomic<float>* odGain   = nullptr;
