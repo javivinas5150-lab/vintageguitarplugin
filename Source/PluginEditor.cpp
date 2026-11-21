@@ -187,14 +187,14 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
 
     for (size_t i = 0; i < (size_t) numDlyKnobs; ++i)
     {
-        setupKnob (dlyKnobs[i], dlyLabels[i], dlyDefs[i].name, 11.0f, 70, dlyDefs[i].suffix, dlyDefs[i].def);
+        setupKnob (dlyKnobs[i], dlyLabels[i], dlyDefs[i].name, 11.0f, 62, dlyDefs[i].suffix, dlyDefs[i].def);
         dlyAttachments[i] = std::make_unique<SliderAttachment> (audioProcessor.apvts, dlyDefs[i].id, dlyKnobs[i]);
         dlyKnobs[i].setNumDecimalPlacesToDisplay (dlyDefs[i].decimals);
     }
 
     for (size_t i = 0; i < (size_t) numRevKnobs; ++i)
     {
-        setupKnob (revKnobs[i], revLabels[i], revDefs[i].name, 11.0f, 70, revDefs[i].suffix, revDefs[i].def);
+        setupKnob (revKnobs[i], revLabels[i], revDefs[i].name, 11.0f, 54, revDefs[i].suffix, revDefs[i].def);
         revAttachments[i] = std::make_unique<SliderAttachment> (audioProcessor.apvts, revDefs[i].id, revKnobs[i]);
         revKnobs[i].setNumDecimalPlacesToDisplay (revDefs[i].decimals);
     }
@@ -202,6 +202,48 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     dlyOnAttachment       = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "dlyOn",       dlyOnButton);
     dlyPingPongAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "dlyPingPong", dlyPingPongButton);
     revOnAttachment       = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "revOn",       revOnButton);
+
+    // --- IR VERB ---
+    irvOnButton.setColour (juce::ToggleButton::textColourId, cream);
+    irvOnButton.setColour (juce::ToggleButton::tickColourId, cream);
+    irvOnButton.onStateChange = [this] { repaint (irvLedArea.expanded (4)); };
+    addAndMakeVisible (irvOnButton);
+
+    for (auto* b : { &loadIRVButton, &clearIRVButton })
+    {
+        b->setColour (juce::TextButton::buttonColourId, juce::Colour (0xff3a3a3a));
+        b->setColour (juce::TextButton::textColourOffId, cream);
+        addAndMakeVisible (*b);
+    }
+    loadIRVButton.onClick = [this] { chooseIRVerbFile(); };
+    clearIRVButton.setTooltip ("Unload IR");
+    clearIRVButton.onClick = [this]
+    {
+        audioProcessor.clearIRVerb();
+        refreshIRVerbInfo();
+    };
+
+    irvNameLabel.setJustificationType (juce::Justification::centredLeft);
+    irvNameLabel.setColour (juce::Label::textColourId, juce::Colour (0xff57d6ff));
+    irvNameLabel.setFont (juce::FontOptions (12.0f));
+    irvNameLabel.setMinimumHorizontalScale (0.6f);
+    addAndMakeVisible (irvNameLabel);
+
+    const std::array<KnobDef, numIrvKnobs> irvDefs {{
+        { "MIX",       "irvMix",      " %",  30.0,    0 },
+        { "PRE-DELAY", "irvPreDelay", " ms", 0.0,     0 },
+        { "LOW CUT",   "irvLowCut",   " Hz", 20.0,    0 },
+        { "HIGH CUT",  "irvHighCut",  " Hz", 20000.0, 0 },
+        { "LEVEL",     "irvLevel",    " dB", 0.0,     1 } }};
+
+    for (size_t i = 0; i < (size_t) numIrvKnobs; ++i)
+    {
+        setupKnob (irvKnobs[i], irvLabels[i], irvDefs[i].name, 11.0f, 62, irvDefs[i].suffix, irvDefs[i].def);
+        irvAttachments[i] = std::make_unique<SliderAttachment> (audioProcessor.apvts, irvDefs[i].id, irvKnobs[i]);
+        irvKnobs[i].setNumDecimalPlacesToDisplay (irvDefs[i].decimals);
+    }
+
+    irvOnAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "irvOn", irvOnButton);
 
     // Tidy number display on the other knobs
     for (auto* k : { &odGainKnob, &odTrebleKnob, &odOutputKnob })
@@ -214,12 +256,14 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
 
     lastFolder   = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
     lastIRFolder = lastFolder;
+    lastIRVFolder = lastFolder;
 
     refreshAmpInfo();
     refreshCabInfo();
+    refreshIRVerbInfo();
     startTimerHz (15); // gate LED + keeps the model / IR names in sync
 
-    setSize (1180, 720);
+    setSize (1180, 740);
 }
 
 //==============================================================================
@@ -261,6 +305,47 @@ void VintageGuitarSuiteAudioProcessorEditor::refreshCabInfo()
 }
 
 //==============================================================================
+void VintageGuitarSuiteAudioProcessorEditor::chooseIRVerbFile()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Choose a reverb / delay IR", lastIRVFolder,
+                                                       IRVerb::getSupportedWildcard());
+
+    const auto openFlags = juce::FileBrowserComponent::openMode
+                         | juce::FileBrowserComponent::canSelectFiles;
+
+    fileChooser->launchAsync (openFlags, [this] (const juce::FileChooser& fc)
+    {
+        const auto file = fc.getResult();
+
+        if (file == juce::File())
+            return; // cancelled
+
+        lastIRVFolder = file.getParentDirectory();
+
+        const auto error = audioProcessor.loadIRVerb (file);
+
+        if (error.isNotEmpty())
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                    "Vintage Guitar Suite", error);
+        refreshIRVerbInfo();
+    });
+}
+
+void VintageGuitarSuiteAudioProcessorEditor::refreshIRVerbInfo()
+{
+    const auto& irv = audioProcessor.getIRVerb();
+
+    juce::String text ("No IR loaded");
+    if (irv.hasIR())
+        text = irv.getIRName() + "  (" + juce::String (irv.getIRLengthSeconds(), 1) + " s)";
+
+    if (irvNameLabel.getText() != text)
+        irvNameLabel.setText (text, juce::dontSendNotification);
+
+    clearIRVButton.setEnabled (irv.hasIR());
+}
+
+//==============================================================================
 void VintageGuitarSuiteAudioProcessorEditor::timerCallback()
 {
     const bool led = audioProcessor.isGateClosing();
@@ -273,6 +358,7 @@ void VintageGuitarSuiteAudioProcessorEditor::timerCallback()
 
     refreshAmpInfo();
     refreshCabInfo();
+    refreshIRVerbInfo();
 }
 
 //==============================================================================
@@ -361,7 +447,7 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Vibe  -  Gold Drive  -  Gate  -  NAM Amp  -  Cab IR  -  Delay  -  Reverb", 0, 42, getWidth(), 16,
+    g.drawText ("Vibe  -  Gold Drive  -  Gate  -  NAM Amp  -  Cab IR  -  Delay  -  Reverb  -  IR Verb", 0, 42, getWidth(), 16,
                 juce::Justification::centred);
 
     // --- FX rack unit (PCM style): black faceplate, rack ears, display ---
@@ -397,9 +483,11 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
         g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
         g.drawText ("DELAY",  dlyArea.withHeight (24).withWidth (60), juce::Justification::centredLeft);
         g.drawText ("REVERB", revArea.withHeight (24).withWidth (70), juce::Justification::centredLeft);
+        g.drawText ("IR VERB", irvArea.withHeight (24).withWidth (76), juce::Justification::centredLeft);
 
         g.setColour (silver.withAlpha (0.25f));
         g.drawVerticalLine ((dlyArea.getRight() + revArea.getX()) / 2, rack.getY() + 10.0f, rack.getBottom() - 10.0f);
+        g.drawVerticalLine ((revArea.getRight() + irvArea.getX()) / 2, rack.getY() + 10.0f, rack.getBottom() - 10.0f);
     }
 
     // --- Pedals ---
@@ -440,6 +528,7 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
     drawLed (odLedArea, odOnButton.getToggleState());
     drawLed (dlyLedArea, dlyOnButton.getToggleState());
     drawLed (revLedArea, revOnButton.getToggleState());
+    drawLed (irvLedArea, irvOnButton.getToggleState());
 
     // Gate, amp and cab panels
     for (auto [panel, title] : { std::pair { gateArea, "GATE" },
@@ -473,23 +562,18 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
     auto pedalRow = area.removeFromTop (180);
     area.removeFromTop (10);
 
-    // --- FX rack at the bottom: DELAY | REVERB ---
-    fxArea = area.removeFromBottom (165);
+    // --- FX rack at the bottom: DELAY | REVERB | IR VERB ---
+    fxArea = area.removeFromBottom (185);
     area.removeFromBottom (10);
     {
         auto rack = fxArea.reduced (30, 10);   // inside the rack ears
 
-        auto header = rack.removeFromTop (24);
-        fxDisplayArea = header.removeFromRight (130).withSizeKeepingCentre (120, 22);
+        const int third = rack.getWidth() / 3;
+        dlyArea = rack.removeFromLeft (third).reduced (8, 0);
+        revArea = rack.removeFromLeft (third).reduced (8, 0);
+        irvArea = rack.reduced (8, 0);
 
-        auto half = rack.getWidth() / 2;
-        dlyArea = rack.removeFromLeft (half).reduced (8, 0);
-        revArea = rack.reduced (8, 0);
-
-        // Titles sit in the header row; ON + LED (and PING-PONG) to their right
-        dlyArea = dlyArea.withTop (header.getY()).withBottom (rack.getBottom());
-        revArea = revArea.withTop (header.getY()).withBottom (rack.getBottom());
-
+        // Header rows: title, ON + LED (+ PING-PONG / display)
         auto dHead = dlyArea.withHeight (24).withTrimmedLeft (60);
         dlyOnButton.setBounds (dHead.removeFromLeft (52));
         dlyLedArea = dHead.removeFromLeft (16).withSizeKeepingCentre (12, 12);
@@ -500,9 +584,23 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
         revOnButton.setBounds (rHead.removeFromLeft (52));
         revLedArea = rHead.removeFromLeft (16).withSizeKeepingCentre (12, 12);
 
-        auto layoutKnobs = [] (juce::Rectangle<int> r, auto& knobs, auto& labels)
+        auto iHead = irvArea.withHeight (24);
+        fxDisplayArea = iHead.removeFromRight (124).withSizeKeepingCentre (116, 22);
+        iHead.removeFromLeft (76);
+        irvOnButton.setBounds (iHead.removeFromLeft (52));
+        irvLedArea = iHead.removeFromLeft (16).withSizeKeepingCentre (12, 12);
+
+        // IR VERB second row: LOAD IR..., X, file name + length
+        auto iRow = irvArea.withTrimmedTop (28).withHeight (24);
+        loadIRVButton.setBounds (iRow.removeFromLeft (92));
+        iRow.removeFromLeft (4);
+        clearIRVButton.setBounds (iRow.removeFromLeft (26));
+        iRow.removeFromLeft (8);
+        irvNameLabel.setBounds (iRow);
+
+        auto layoutKnobs = [] (juce::Rectangle<int> r, int top, auto& knobs, auto& labels)
         {
-            r.removeFromTop (28);
+            r.removeFromTop (top);
             const int w = r.getWidth() / (int) knobs.size();
             for (size_t i = 0; i < knobs.size(); ++i)
             {
@@ -512,8 +610,9 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
             }
         };
 
-        layoutKnobs (dlyArea, dlyKnobs, dlyLabels);
-        layoutKnobs (revArea, revKnobs, revLabels);
+        layoutKnobs (dlyArea, 30, dlyKnobs, dlyLabels);
+        layoutKnobs (revArea, 30, revKnobs, revLabels);
+        layoutKnobs (irvArea, 56, irvKnobs, irvLabels);
     }
 
     constexpr int pedalWidth = 320, pedalGap = 40;

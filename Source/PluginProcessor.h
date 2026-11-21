@@ -9,11 +9,12 @@
 #include "Modules/GoldDrive.h"
 #include "Modules/StereoDelay.h"
 #include "Modules/LexReverb.h"
+#include "Modules/IRVerb.h"
 
 //==============================================================================
 // Vintage Guitar Suite
 // Chain: [mono] input -> gate detect -> VIBE -> GOLD DRIVE -> NAM amp -> gate -> CAB IR
-//        [stereo] -> DELAY -> REVERB -> output
+//        [stereo] -> DELAY -> REVERB -> IR VERB -> output
 //==============================================================================
 class VintageGuitarSuiteAudioProcessor : public juce::AudioProcessor
 {
@@ -72,6 +73,11 @@ public:
     void clearCabIR();
     const CabIR& getCabIR() const { return cabIR; }
 
+    // IR Verb (message thread). Returns "" on success.
+    juce::String loadIRVerb (const juce::File& file);
+    void clearIRVerb();
+    const IRVerb& getIRVerb() const { return irVerb; }
+
 private:
     // Raw pointers to the parameter values, read on the audio thread
     std::atomic<float>* inputGainDb  = nullptr;
@@ -117,8 +123,16 @@ private:
     std::atomic<float>* revMod = nullptr;
     std::atomic<float>* revMix = nullptr;
 
+    std::atomic<float>* irvOn = nullptr;
+    std::atomic<float>* irvMix = nullptr;
+    std::atomic<float>* irvPreDelay = nullptr;
+    std::atomic<float>* irvLowCut = nullptr;
+    std::atomic<float>* irvHighCut = nullptr;
+    std::atomic<float>* irvLevel = nullptr;
+
     StereoDelay stereoDelay;
     LexReverb reverb;
+    IRVerb irVerb;
     std::vector<float> monoScratch;   // right channel stand-in on mono tracks
 
     NoiseGate noiseGate;

@@ -50,6 +50,13 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     revTone     = apvts.getRawParameterValue ("revTone");
     revMod      = apvts.getRawParameterValue ("revMod");
     revMix      = apvts.getRawParameterValue ("revMix");
+
+    irvOn       = apvts.getRawParameterValue ("irvOn");
+    irvMix      = apvts.getRawParameterValue ("irvMix");
+    irvPreDelay = apvts.getRawParameterValue ("irvPreDelay");
+    irvLowCut   = apvts.getRawParameterValue ("irvLowCut");
+    irvHighCut  = apvts.getRawParameterValue ("irvHighCut");
+    irvLevel    = apvts.getRawParameterValue ("irvLevel");
 }
 
 double VintageGuitarSuiteAudioProcessor::getTailLengthSeconds() const
@@ -68,6 +75,9 @@ double VintageGuitarSuiteAudioProcessor::getTailLengthSeconds() const
         tail = juce::jmax (tail, repeats * dlyTime->load() * 0.001);
     }
 
+    if (irvOn->load() > 0.5f && irVerb.hasIR())
+        tail = juce::jmax (tail, irVerb.getIRLengthSeconds() + irvPreDelay->load() * 0.001);
+
     return juce::jmin (tail, 30.0);
 }
 
@@ -76,6 +86,23 @@ namespace
 {
     const juce::Identifier namModelPathId ("namModelPath");
     const juce::Identifier cabIRPathId    ("cabIRPath");
+    const juce::Identifier irVerbPathId   ("irVerbPath");
+}
+
+juce::String VintageGuitarSuiteAudioProcessor::loadIRVerb (const juce::File& file)
+{
+    auto error = irVerb.loadIR (file);
+
+    if (error.isEmpty())
+        apvts.state.setProperty (irVerbPathId, file.getFullPathName(), nullptr);
+
+    return error;
+}
+
+void VintageGuitarSuiteAudioProcessor::clearIRVerb()
+{
+    irVerb.clearIR();
+    apvts.state.removeProperty (irVerbPathId, nullptr);
 }
 
 juce::String VintageGuitarSuiteAudioProcessor::loadCabIR (const juce::File& file)
@@ -245,6 +272,14 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addFloat ("revMod",      "Reverb Mod",       0.0f,    100.0f,   40.0f,    0.0f, "%");
     addFloat ("revMix",      "Reverb Mix",       0.0f,    100.0f,   20.0f,    0.0f, "%");
 
+    // Rack: IR Verb (convolution)
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "irvOn", 1 }, "IR Verb On", false));
+    addFloat ("irvMix",      "IR Verb Mix",       0.0f,    100.0f,    30.0f,    0.0f, "%");
+    addFloat ("irvPreDelay", "IR Verb Pre-Delay", 0.0f,    200.0f,     0.0f,   40.0f, "ms");
+    addFloat ("irvLowCut",   "IR Verb Low Cut",  20.0f,   1000.0f,    20.0f,  150.0f, "Hz");   // 20 = off
+    addFloat ("irvHighCut",  "IR Verb High Cut", 2000.0f, 20000.0f, 20000.0f, 7000.0f, "Hz");  // 20k = off
+    addFloat ("irvLevel",    "IR Verb Level",   -24.0f,    12.0f,      0.0f,    0.0f, "dB");
+
     return layout;
 }
 
@@ -261,6 +296,7 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
 
     stereoDelay.prepare (sampleRate, samplesPerBlock);
     reverb.prepare (sampleRate, samplesPerBlock);
+    irVerb.prepare (sampleRate, samplesPerBlock);
     monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
     toneStack.prepare (sampleRate);
@@ -402,6 +438,18 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         reverb.process (left, right, numSamples);
     }
 
+    if (irvOn->load() > 0.5f)
+    {
+        IRVerb::Params p;
+        p.mix        = irvMix->load() / 100.0f;
+        p.preDelayMs = irvPreDelay->load();
+        p.lowCutHz   = irvLowCut->load();
+        p.highCutHz  = irvHighCut->load();
+        p.levelDb    = irvLevel->load();
+        irVerb.setParameters (p);
+        irVerb.process (left, right, numSamples);
+    }
+
     // 8) Output gain
     outputGain.applyGain (buffer, numSamples);
 }
@@ -443,6 +491,14 @@ void VintageGuitarSuiteAudioProcessor::setStateInformation (const void* data, in
             cabIR.loadIR (juce::File (irPath));
         else
             cabIR.clearIR();
+
+        // ...and the IR Verb
+        const auto verbPath = apvts.state.getProperty (irVerbPathId).toString();
+
+        if (verbPath.isNotEmpty())
+            irVerb.loadIR (juce::File (verbPath));
+        else
+            irVerb.clearIR();
     }
 }
 

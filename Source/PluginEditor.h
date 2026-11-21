@@ -6,7 +6,7 @@
 //==============================================================================
 // Editor:  pedal row:  VIBE | GOLD DRIVE
 //          amp row:    INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
-//          FX rack:    DELAY | REVERB
+//          FX rack:    DELAY | REVERB | IR VERB
 //==============================================================================
 class VintageGuitarSuiteAudioProcessorEditor : public juce::AudioProcessorEditor,
                                                private juce::Timer
@@ -29,6 +29,8 @@ private:
     void chooseIRFile();
     void refreshAmpInfo();
     void refreshCabInfo();
+    void chooseIRVerbFile();
+    void refreshIRVerbInfo();
     void timerCallback() override;
 
     VintageGuitarSuiteAudioProcessor& audioProcessor;
@@ -76,6 +78,16 @@ private:
     std::array<juce::Slider, numRevKnobs> revKnobs;
     std::array<juce::Label,  numRevKnobs> revLabels;
 
+    // FX rack: IR VERB
+    static constexpr int numIrvKnobs = 5;
+    juce::Rectangle<int> irvArea, irvLedArea;
+    juce::ToggleButton irvOnButton { "ON" };
+    juce::TextButton loadIRVButton { "LOAD IR..." }, clearIRVButton { "X" };
+    juce::Label irvNameLabel;
+    std::array<juce::Slider, numIrvKnobs> irvKnobs;
+    std::array<juce::Label,  numIrvKnobs> irvLabels;
+    juce::File lastIRVFolder;
+
     // Cab section
     juce::Rectangle<int> cabArea;
     juce::TextButton loadIRButton  { "LOAD IR..." };
@@ -99,6 +111,8 @@ private:
     std::unique_ptr<ButtonAttachment> dlyOnAttachment, dlyPingPongAttachment, revOnAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numDlyKnobs> dlyAttachments;
     std::array<std::unique_ptr<SliderAttachment>, numRevKnobs> revAttachments;
+    std::unique_ptr<ButtonAttachment> irvOnAttachment;
+    std::array<std::unique_ptr<SliderAttachment>, numIrvKnobs> irvAttachments;
     std::unique_ptr<SliderAttachment> gateThresholdAttachment, gateReleaseAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numAmpKnobs> ampKnobAttachments;
 

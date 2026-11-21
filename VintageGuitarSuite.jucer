@@ -34,6 +34,8 @@
         <FILE id="fDlyC" name="StereoDelay.cpp" compile="1" resource="0" file="Source/Modules/StereoDelay.cpp"/>
         <FILE id="fRevH" name="LexReverb.h" compile="0" resource="0" file="Source/Modules/LexReverb.h"/>
         <FILE id="fRevC" name="LexReverb.cpp" compile="1" resource="0" file="Source/Modules/LexReverb.cpp"/>
+        <FILE id="fIrvH" name="IRVerb.h" compile="0" resource="0" file="Source/Modules/IRVerb.h"/>
+        <FILE id="fIrvC" name="IRVerb.cpp" compile="1" resource="0" file="Source/Modules/IRVerb.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="gNam001" name="NAM">
