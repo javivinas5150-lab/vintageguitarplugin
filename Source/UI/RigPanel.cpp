@@ -1097,9 +1097,9 @@ void RigPanel::drawPedal (juce::Graphics& g, juce::Rectangle<float> r, juce::Col
     // Side wall of the die-cast box (we look at it slightly from the front)
     {
         const auto side = r.translated (0.0f, 7.0f);
-        juce::ColourGradient wall (bottom.darker (0.35f), side.getX(), side.getBottom() - 10.0f,
-                                   bottom.darker (1.4f), side.getX(), side.getBottom(), false);
-        g.setGradientFill (wall);
+        juce::ColourGradient sideShade (bottom.darker (0.35f), side.getX(), side.getBottom() - 10.0f,
+                                        bottom.darker (1.4f), side.getX(), side.getBottom(), false);
+        g.setGradientFill (sideShade);
         g.fillRoundedRectangle (side, corner);
         g.setColour (juce::Colours::white.withAlpha (0.10f));
         g.drawHorizontalLine ((int) side.getBottom() - 2, side.getX() + corner, side.getRight() - corner);
