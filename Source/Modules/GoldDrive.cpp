@@ -63,7 +63,7 @@ void GoldDrive::updateFilters()
     using Coeffs = juce::dsp::IIR::ArrayCoefficients<float>;
 
     // Drive path voicing
-    *driveHighPass.coefficients = Coeffs::makeHighPass    (osRate, bassSwitch ? 100.0 : 250.0, 0.707f);
+    *driveHighPass.coefficients = Coeffs::makeHighPass    (osRate, bassSwitch ? 100.0f : 250.0f, 0.707f);
     *bassShelf.coefficients     = Coeffs::makeLowShelf    (osRate, 120.0, 0.707f,
                                                            juce::Decibels::decibelsToGain (bassSwitch ? 6.0f : 0.0f));
     *driveMidBoost.coefficients = Coeffs::makePeakFilter  (osRate, 1000.0, 0.8f, juce::Decibels::decibelsToGain (6.0f));
