@@ -1,0 +1,43 @@
+# ---- JUCE / Projucer generated ----
+Builds/
+JuceLibraryCode/
+
+# ---- Visual Studio ----
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.opendb
+*.ipch
+x64/
+Win32/
+Debug/
+Release/
+*.obj
+*.pdb
+*.ilk
+*.log
+*.tlog
+
+# ---- CMake ----
+build/
+cmake-build-*/
+CMakeUserPresets.json
+
+# ---- Plugin binaries ----
+*.vst3
+*.dll
+*.exe
+*.lib
+*.exp
+
+# ---- Large audio / model files (store separately or with Git LFS) ----
+*.wav
+*.nam
+
+# ---- OS ----
+Thumbs.db
+Desktop.ini
+.DS_Store
