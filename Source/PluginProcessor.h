@@ -164,6 +164,7 @@ private:
     std::atomic<float>* odGain   = nullptr;
     std::atomic<float>* odTreble = nullptr;
     std::atomic<float>* odOutput = nullptr;
+    std::atomic<float>* odBass   = nullptr;
     std::atomic<float>* odType   = nullptr;   // 0 = Gold Drive, 1 = NAM pedal
     std::atomic<float>* tunerOn  = nullptr;
     std::atomic<float>* inputSelect = nullptr;

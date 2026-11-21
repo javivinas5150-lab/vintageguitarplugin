@@ -179,6 +179,8 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     setupKnob (pnamTone,   "pnamTone",   "TONE",   "pedal", ValueBox::none, 1, "dB", cream);
     setupKnob (pnamOutput, "pnamOutput", "OUTPUT", "pedal", ValueBox::none, 1, "dB", cream);
     setupToggle (odType, odTypeAttachment, "odType", "modeSwitch", ink);
+    setupToggle (odBass, odBassAttachment, "odBass", {}, ink);
+    odBass.setTooltip ("Bass boost: keeps the low end the Gold Drive normally cuts");
     odType.onStateChange = [this] { updateDriveType(); };
 
     setupTextButton (loadPedalButton);
@@ -547,6 +549,7 @@ void RigPanel::updateDriveType()
         k->slider.setVisible (! namPedalShown);
         k->label.setVisible (! namPedalShown);
     }
+    odBass.setVisible (! namPedalShown);
 
     for (auto* k : { &pnamInput, &pnamTone, &pnamOutput })
     {
@@ -891,6 +894,7 @@ void RigPanel::applySkin (int index)
         k->label.setColour (juce::Label::textColourId, sk.vibeText);
     for (auto* k : { &odGain, &odTreble, &odOutput })
         k->label.setColour (juce::Label::textColourId, sk.goldText);
+    odBass.setColour (juce::ToggleButton::textColourId, sk.goldText);
     for (auto* k : { &pnamInput, &pnamTone, &pnamOutput })
         k->label.setColour (juce::Label::textColourId, sk.namText);
 
@@ -960,6 +964,7 @@ void RigPanel::resized()
 
         // GOLD / NAM selector (bottom-left, like the Vibe's mode switch)
         odType.setBounds (a.getX() + 58 - 20, a.getY() + 182, 40, 24);
+        odBass.setBounds (a.getX() + 204, a.getY() + 182, 76, 24);
 
         // NAM DRIVE: model window under the title, smaller knobs below it
         pedalWindowArea = { a.getX() + 22, a.getY() + 52, a.getWidth() - 44, 26 };

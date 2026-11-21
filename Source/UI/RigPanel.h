@@ -104,8 +104,8 @@ private:
     std::unique_ptr<ButtonAttachment> vibeOnAttachment, vibeModeAttachment;
 
     Knob odGain, odTreble, odOutput;
-    juce::ToggleButton odOn, odType;
-    std::unique_ptr<ButtonAttachment> odOnAttachment, odTypeAttachment;
+    juce::ToggleButton odOn, odType, odBass { "BASS" };
+    std::unique_ptr<ButtonAttachment> odOnAttachment, odTypeAttachment, odBassAttachment;
 
     // NAM drive pedal (same slot as the Gold Drive)
     Knob pnamInput, pnamTone, pnamOutput;

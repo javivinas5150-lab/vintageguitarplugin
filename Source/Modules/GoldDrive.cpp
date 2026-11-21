@@ -37,6 +37,7 @@ void GoldDrive::reset()
     driveMidBoost.reset();
     driveLowPass.reset();
     trebleShelf.reset();
+    bassShelf.reset();
 }
 
 int GoldDrive::getLatencySamples() const
@@ -45,13 +46,14 @@ int GoldDrive::getLatencySamples() const
 }
 
 //==============================================================================
-void GoldDrive::setParameters (float gain0to10, float treble0to10, float output0to10)
+void GoldDrive::setParameters (float gain0to10, float treble0to10, float output0to10, bool bassBoost)
 {
-    if (gain0to10 != gainKnob || treble0to10 != trebleKnob || output0to10 != outputKnob)
+    if (gain0to10 != gainKnob || treble0to10 != trebleKnob || output0to10 != outputKnob || bassBoost != bassSwitch)
     {
         gainKnob   = gain0to10;
         trebleKnob = treble0to10;
         outputKnob = output0to10;
+        bassSwitch = bassBoost;
         filtersNeedUpdate = true;
     }
 }
@@ -61,7 +63,9 @@ void GoldDrive::updateFilters()
     using Coeffs = juce::dsp::IIR::ArrayCoefficients<float>;
 
     // Drive path voicing
-    *driveHighPass.coefficients = Coeffs::makeHighPass    (osRate, 250.0,  0.707f);
+    *driveHighPass.coefficients = Coeffs::makeHighPass    (osRate, bassSwitch ? 100.0 : 250.0, 0.707f);
+    *bassShelf.coefficients     = Coeffs::makeLowShelf    (osRate, 120.0, 0.707f,
+                                                           juce::Decibels::decibelsToGain (bassSwitch ? 6.0f : 0.0f));
     *driveMidBoost.coefficients = Coeffs::makePeakFilter  (osRate, 1000.0, 0.8f, juce::Decibels::decibelsToGain (6.0f));
     *driveLowPass.coefficients  = Coeffs::makeLowPass     (osRate, 6000.0, 0.707f);
 
@@ -116,6 +120,7 @@ void GoldDrive::process (float* data, int numSamples, bool enabled)
             // Mix with the clean path, then TREBLE and OUTPUT
             float y = cleanAmount * in + driveAmount * d;
             y = trebleShelf.processSample (y);
+            y = bassShelf.processSample (y);
             x[i] = y * outputGain;
         }
     }

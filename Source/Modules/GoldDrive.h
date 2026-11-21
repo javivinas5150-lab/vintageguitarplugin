@@ -13,6 +13,9 @@
 //  - The drive path has a bass cut and a mid hump before soft (germanium
 //    diode) clipping, then a gentle top roll-off.
 //  - TREBLE is an active shelf after the mix; OUTPUT has lots of clean boost.
+//  - BASS switch (a common mod): drive-path bass cut moved from 250 Hz to
+//    100 Hz and a +6 dB low shelf at 120 Hz after the mix, to keep the low end
+//    that the original voicing throws away.
 //
 // Runs at 4x oversampling to keep the clipping free of aliasing.
 // Latency is a small whole number of samples (reported to the host).
@@ -26,7 +29,7 @@ public:
     int getLatencySamples() const;
 
     // Audio thread. Knobs are 0..10 like the real pedal.
-    void setParameters (float gain0to10, float treble0to10, float output0to10);
+    void setParameters (float gain0to10, float treble0to10, float output0to10, bool bassBoost = false);
 
     // Always call (even when off) so latency stays constant; 'enabled' false = clean pass.
     void process (float* data, int numSamples, bool enabled);
@@ -37,9 +40,10 @@ private:
     std::unique_ptr<juce::dsp::Oversampling<float>> oversampling;
     double osRate = 192000.0;
 
-    juce::dsp::IIR::Filter<float> driveHighPass, driveMidBoost, driveLowPass, trebleShelf;
+    juce::dsp::IIR::Filter<float> driveHighPass, driveMidBoost, driveLowPass, trebleShelf, bassShelf;
 
     float gainKnob = 3.0f, trebleKnob = 5.0f, outputKnob = 5.0f;
+    bool bassSwitch = false;
     bool filtersNeedUpdate = true;
 
     // Derived from the knobs

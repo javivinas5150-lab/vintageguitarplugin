@@ -43,6 +43,7 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     pedalNam.setLoudnessNormalisation (false);   // keep the pedal's real level
     odTreble = apvts.getRawParameterValue ("odTreble");
     odOutput = apvts.getRawParameterValue ("odOutput");
+    odBass   = apvts.getRawParameterValue ("odBass");
 
     dlyOn       = apvts.getRawParameterValue ("dlyOn");
     dlyTime     = apvts.getRawParameterValue ("dlyTime");
@@ -268,6 +269,7 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addKnob10 ("odGain",   "Drive Gain",   3.0f);
     addKnob10 ("odTreble", "Drive Treble", 5.0f);
     addKnob10 ("odOutput", "Drive Output", 5.0f);
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "odBass", 1 }, "Drive Bass Boost", false));
 
     // Drive slot type: built-in Gold Drive or a NAM capture of a drive pedal
     layout.add (std::make_unique<juce::AudioParameterChoice> (
@@ -454,7 +456,7 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     const bool driveOn  = odOn->load() > 0.5f;
     const bool namPedal = odType->load() > 0.5f;
 
-    goldDrive.setParameters (odGain->load(), odTreble->load(), odOutput->load());
+    goldDrive.setParameters (odGain->load(), odTreble->load(), odOutput->load(), odBass->load() > 0.5f);
     goldDrive.process (mono, numSamples, driveOn && ! namPedal);
 
     pedalInGain.setTargetValue  (juce::Decibels::decibelsToGain (pnamInput->load()));
