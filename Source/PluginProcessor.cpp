@@ -10,6 +10,29 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
 {
     inputGainDb  = apvts.getRawParameterValue ("inputGain");
     outputGainDb = apvts.getRawParameterValue ("outputGain");
+    ampBypass    = apvts.getRawParameterValue ("ampBypass");
+}
+
+//==============================================================================
+namespace
+{
+    const juce::Identifier namModelPathId ("namModelPath");
+}
+
+juce::String VintageGuitarSuiteAudioProcessor::loadNamModel (const juce::File& file)
+{
+    auto error = namAmp.loadModel (file);
+
+    if (error.isEmpty())
+        apvts.state.setProperty (namModelPathId, file.getFullPathName(), nullptr);
+
+    return error;
+}
+
+void VintageGuitarSuiteAudioProcessor::clearNamModel()
+{
+    namAmp.clearModel();
+    apvts.state.removeProperty (namModelPathId, nullptr);
 }
 
 //==============================================================================
@@ -29,12 +52,17 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
         juce::ParameterID { "outputGain", 1 }, "Output Gain", gainRange, 0.0f,
         juce::AudioParameterFloatAttributes().withLabel ("dB")));
 
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "ampBypass", 1 }, "Amp Bypass", false));
+
     return layout;
 }
 
 //==============================================================================
-void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int /*samplesPerBlock*/)
+void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    namAmp.prepare (sampleRate, samplesPerBlock);
+
     // 50 ms ramp when a knob changes
     inputGain.reset  (sampleRate, 0.05);
     outputGain.reset (sampleRate, 0.05);
@@ -75,10 +103,21 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     // 1) Input gain
     inputGain.applyGain (buffer, numSamples);
 
-    // 2) Future chain goes here (Phase 2+):
-    //    Uni-Vibe -> Klon-style OD -> NAM amp -> Cabinet IR -> Delay/Reverb
+    // 2) (Phase 4) Uni-Vibe -> Klon-style OD will go here
 
-    // 3) Output gain
+    // 3) NAM amp - models are mono: process the first channel,
+    //    then copy the result to the other channel(s)
+    if (ampBypass->load() < 0.5f && namAmp.hasModel())
+    {
+        namAmp.process (buffer.getWritePointer (0), numSamples);
+
+        for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
+            buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
+    }
+
+    // 4) (Phase 3, 5) Cabinet IR -> Delay/Reverb will go here
+
+    // 5) Output gain
     outputGain.applyGain (buffer, numSamples);
 }
 
@@ -101,7 +140,17 @@ void VintageGuitarSuiteAudioProcessor::setStateInformation (const void* data, in
     std::unique_ptr<juce::XmlElement> xml (getXmlFromBinary (data, sizeInBytes));
 
     if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
+    {
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
+
+        // Reload the NAM model that was saved with the project
+        const auto path = apvts.state.getProperty (namModelPathId).toString();
+
+        if (path.isNotEmpty())
+            namAmp.loadModel (juce::File (path)); // if missing, the amp stays empty
+        else
+            namAmp.clearModel();
+    }
 }
 
 //==============================================================================

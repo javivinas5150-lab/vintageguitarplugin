@@ -8,6 +8,10 @@ Uni-Vibe → Klon-style Overdrive → NAM Amp (Fender Dual Showman captures) →
 
 Each module has its own bypass.
 
+## Third-party
+
+See `ThirdParty/README.md` (NeuralAmpModelerCore - MIT, Eigen - MPL2, nlohmann/json - MIT).
+
 ## Roadmap
 
 1. Basic plugin (input/output gain)

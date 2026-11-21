@@ -1,10 +1,11 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "Modules/NamAmp.h"
 
 //==============================================================================
-// Vintage Guitar Suite - Phase 1
-// Basic plugin: input gain -> (future modules go here) -> output gain
+// Vintage Guitar Suite - Phase 2
+// Chain: input gain -> NAM amp -> (future modules) -> output gain
 //==============================================================================
 class VintageGuitarSuiteAudioProcessor : public juce::AudioProcessor
 {
@@ -51,10 +52,19 @@ public:
     // Holds all plugin parameters (the editor connects its knobs to this)
     juce::AudioProcessorValueTreeState apvts;
 
+    //==========================================================================
+    // NAM amp (call from the message thread). Returns "" on success.
+    juce::String loadNamModel (const juce::File& file);
+    void clearNamModel();
+    const NamAmp& getNamAmp() const { return namAmp; }
+
 private:
-    // Raw pointers to the parameter values (in dB), read on the audio thread
+    // Raw pointers to the parameter values, read on the audio thread
     std::atomic<float>* inputGainDb  = nullptr;
     std::atomic<float>* outputGainDb = nullptr;
+    std::atomic<float>* ampBypass    = nullptr;
+
+    NamAmp namAmp;
 
     // Smoothing avoids clicks/zipper noise when a knob is moved
     juce::SmoothedValue<float> inputGain;
