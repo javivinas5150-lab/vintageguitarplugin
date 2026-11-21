@@ -2,6 +2,10 @@
 
 _(repository and project files keep the original working name "VintageGuitarSuite")_
 
+![Jemini Guitar Rig](docs/screenshot.png)
+
+The window is resizable (drag the bottom-right corner); the size is saved with the project.
+
 VST3 guitar amp & effects plugin built with JUCE (C++17) for Windows / Cubase 12.
 
 ## Signal chain (v1)

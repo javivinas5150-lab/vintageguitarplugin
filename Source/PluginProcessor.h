@@ -78,6 +78,17 @@ public:
     void clearIRVerb();
     const IRVerb& getIRVerb() const { return irVerb; }
 
+    // Output meter: highest peak since the last call (GUI thread), then reset
+    float takeOutputPeak (int channel) { return outputPeak[(size_t) juce::jlimit (0, 1, channel)].exchange (0.0f); }
+
+    // Effect ON states for the GUI
+    bool isParamOn (const juce::String& id) const
+    {
+        if (auto* v = apvts.getRawParameterValue (id))
+            return v->load() > 0.5f;
+        return false;
+    }
+
 private:
     // Raw pointers to the parameter values, read on the audio thread
     std::atomic<float>* inputGainDb  = nullptr;
@@ -134,6 +145,7 @@ private:
     LexReverb reverb;
     IRVerb irVerb;
     std::vector<float> monoScratch;   // right channel stand-in on mono tracks
+    std::array<std::atomic<float>, 2> outputPeak { 0.0f, 0.0f };
 
     NoiseGate noiseGate;
     Vibe vibe;

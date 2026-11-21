@@ -38,6 +38,17 @@
         <FILE id="fIrvC" name="IRVerb.cpp" compile="1" resource="0" file="Source/Modules/IRVerb.cpp"/>
       </GROUP>
     </GROUP>
+    <GROUP id="gUi0001" name="UI">
+      <FILE id="fUiRpH" name="RigPanel.h" compile="0" resource="0" file="Source/UI/RigPanel.h"/>
+      <FILE id="fUiRpC" name="RigPanel.cpp" compile="1" resource="0" file="Source/UI/RigPanel.cpp"/>
+      <FILE id="fUiLfH" name="JeminiLookAndFeel.h" compile="0" resource="0" file="Source/UI/JeminiLookAndFeel.h"/>
+      <FILE id="fUiLfC" name="JeminiLookAndFeel.cpp" compile="1" resource="0" file="Source/UI/JeminiLookAndFeel.cpp"/>
+    </GROUP>
+    <GROUP id="gRes001" name="Resources">
+      <FILE id="fFntYt" name="Yellowtail-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/Yellowtail-Regular.ttf"/>
+      <FILE id="fFntOs" name="Oswald-Variable.ttf" compile="0" resource="1" file="Resources/Fonts/Oswald-Variable.ttf"/>
+      <FILE id="fFntSt" name="ShareTechMono-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/ShareTechMono-Regular.ttf"/>
+    </GROUP>
     <GROUP id="gNam001" name="NAM">
       <FILE id="f7c7c10" name="activations.cpp" compile="1" resource="0"
             file="ThirdParty/NeuralAmpModelerCore/NAM/activations.cpp"/>

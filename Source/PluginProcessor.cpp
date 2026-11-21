@@ -452,6 +452,18 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // 8) Output gain
     outputGain.applyGain (buffer, numSamples);
+
+    // Peak levels for the OUTPUT meter (the GUI reads and resets them)
+    for (int ch = 0; ch < juce::jmin (2, buffer.getNumChannels()); ++ch)
+    {
+        const float peak = buffer.getMagnitude (ch, 0, numSamples);
+        auto& slot = outputPeak[(size_t) ch];
+        float prev = slot.load();
+        while (peak > prev && ! slot.compare_exchange_weak (prev, peak)) {}
+    }
+
+    if (buffer.getNumChannels() == 1)
+        outputPeak[1].store (outputPeak[0].load());
 }
 
 //==============================================================================
