@@ -319,6 +319,14 @@ void JeminiLookAndFeel::drawModeSwitch (juce::Graphics& g, juce::ToggleButton& b
 
 void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool highlighted, bool down)
 {
+    if (button.getProperties()["style"].toString() == "presetButton")
+    {
+        g.setColour (cream.withAlpha (highlighted ? 1.0f : 0.85f));
+        g.setFont (condensed (button.getButtonText().length() > 1 ? 14.0f : 17.0f));
+        g.drawText (button.getButtonText(), button.getLocalBounds().translated (0, down ? 1 : 0), juce::Justification::centred, false);
+        return;
+    }
+
     if (button.getProperties()["style"].toString() == "inputSelect")
     {
         g.setColour (button.getToggleState() ? cream : silver.withAlpha (highlighted ? 0.8f : 0.5f));
@@ -457,6 +465,20 @@ void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
         }
         g.setColour (on ? cream.withAlpha (0.6f) : silver.withAlpha (highlighted ? 0.5f : 0.25f));
         g.drawRoundedRectangle (r, 4.0f, 1.0f);
+        return;
+    }
+
+    if (style == "presetButton")
+    {
+        auto r = button.getLocalBounds().toFloat().reduced (1.0f);
+        g.setGradientFill (realism::chrome (r));
+        g.fillRoundedRectangle (r, 5.0f);
+        const auto inner = r.reduced (1.5f);
+        juce::ColourGradient body (juce::Colour (down ? 0xff111113 : (highlighted ? 0xff303036 : 0xff242428)), inner.getX(), inner.getY(),
+                                   juce::Colour (0xff0a0a0b), inner.getX(), inner.getBottom(), false);
+        g.setGradientFill (body);
+        g.fillRoundedRectangle (inner, 4.0f);
+        realism::bevel (g, inner, 4.0f, 1.0f, 0.22f, 0.5f);
         return;
     }
 

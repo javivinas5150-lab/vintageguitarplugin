@@ -66,6 +66,8 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     irvLowCut   = apvts.getRawParameterValue ("irvLowCut");
     irvHighCut  = apvts.getRawParameterValue ("irvHighCut");
     irvLevel    = apvts.getRawParameterValue ("irvLevel");
+
+    presets = std::make_unique<PresetManager> (*this);
 }
 
 double VintageGuitarSuiteAudioProcessor::getTailLengthSeconds() const
@@ -600,39 +602,94 @@ void VintageGuitarSuiteAudioProcessor::setStateInformation (const void* data, in
     if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
     {
         apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        restoreFiles (false);
 
-        // Reload the NAM model that was saved with the project
-        const auto path = apvts.state.getProperty (namModelPathId).toString();
-
-        if (path.isNotEmpty())
-            namAmp.loadModel (juce::File (path)); // if missing, the amp stays empty
-        else
-            namAmp.clearModel();
-
-        // ...and the NAM drive pedal
-        const auto pedalPath = apvts.state.getProperty (pedalNamPathId).toString();
-
-        if (pedalPath.isNotEmpty())
-            pedalNam.loadModel (juce::File (pedalPath));
-        else
-            pedalNam.clearModel();
-
-        // ...and the cabinet IR
-        const auto irPath = apvts.state.getProperty (cabIRPathId).toString();
-
-        if (irPath.isNotEmpty())
-            cabIR.loadIR (juce::File (irPath));
-        else
-            cabIR.clearIR();
-
-        // ...and the IR Verb
-        const auto verbPath = apvts.state.getProperty (irVerbPathId).toString();
-
-        if (verbPath.isNotEmpty())
-            irVerb.loadIR (juce::File (verbPath));
-        else
-            irVerb.clearIR();
+        if (presets != nullptr)
+            presets->markStateAsLoaded();     // the project's rig is the reference for "*"
     }
+}
+
+//==============================================================================
+namespace
+{
+    // State properties that describe the look, not the sound
+    const std::array<juce::Identifier, 3> lookProps { juce::Identifier ("skin"), juce::Identifier ("uiScale"),
+                                                      juce::Identifier ("presetIndex") };
+}
+
+juce::ValueTree VintageGuitarSuiteAudioProcessor::capturePreset()
+{
+    auto state = apvts.copyState();
+    for (auto& id : lookProps)
+        state.removeProperty (id, nullptr);
+    state.removeProperty ("factory", nullptr);
+
+    // never store the tuner as "on"
+    for (int i = 0; i < state.getNumChildren(); ++i)
+    {
+        auto child = state.getChild (i);
+        if (child.getProperty ("id").toString() == "tunerOn")
+            child.setProperty ("value", 0.0f, nullptr);
+    }
+    return state;
+}
+
+void VintageGuitarSuiteAudioProcessor::applyPreset (const juce::ValueTree& preset)
+{
+    if (! preset.isValid())
+        return;
+
+    auto state = preset.createCopy();
+
+    // keep the current look
+    for (auto& id : lookProps)
+        if (apvts.state.hasProperty (id))
+            state.setProperty (id, apvts.state.getProperty (id), nullptr);
+
+    // Factory presets keep the user's own NAM models / IRs; user presets
+    // bring their files (and clear the ones they don't use)
+    const bool factory = (bool) preset.getProperty ("factory", false);
+    state.removeProperty ("factory", nullptr);
+
+    for (auto id : { namModelPathId, pedalNamPathId, cabIRPathId, irVerbPathId })
+    {
+        if (factory && apvts.state.hasProperty (id))
+            state.setProperty (id, apvts.state.getProperty (id), nullptr);
+        else if (! factory && ! preset.hasProperty (id))
+            state.removeProperty (id, nullptr);
+    }
+
+    apvts.replaceState (state);
+    restoreFiles (true);
+}
+
+void VintageGuitarSuiteAudioProcessor::restoreFiles (bool onlyIfChanged)
+{
+    auto pathOf = [this] (const juce::Identifier& id) { return apvts.state.getProperty (id).toString(); };
+
+    // NAM amp
+    if (const auto path = pathOf (namModelPathId); path.isEmpty())
+        namAmp.clearModel();
+    else if (! onlyIfChanged || ! namAmp.hasModel() || namAmp.getModelFile() != juce::File (path))
+        namAmp.loadModel (juce::File (path));       // if missing, the amp stays empty
+
+    // NAM drive pedal
+    if (const auto path = pathOf (pedalNamPathId); path.isEmpty())
+        pedalNam.clearModel();
+    else if (! onlyIfChanged || ! pedalNam.hasModel() || pedalNam.getModelFile() != juce::File (path))
+        pedalNam.loadModel (juce::File (path));
+
+    // Cabinet IR
+    if (const auto path = pathOf (cabIRPathId); path.isEmpty())
+        cabIR.clearIR();
+    else if (! onlyIfChanged || ! cabIR.hasIR() || cabIR.getIRFile() != juce::File (path))
+        cabIR.loadIR (juce::File (path));
+
+    // IR Verb
+    if (const auto path = pathOf (irVerbPathId); path.isEmpty())
+        irVerb.clearIR();
+    else if (! onlyIfChanged || ! irVerb.hasIR() || irVerb.getIRFile() != juce::File (path))
+        irVerb.loadIR (juce::File (path));
 }
 
 //==============================================================================

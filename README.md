@@ -81,3 +81,15 @@ adjustable A4 reference (425–455 Hz). The output is muted while tuning. Close
 with CLOSE, the TUNER button, or by clicking outside the unit.
 
 ![Tuner](docs/tuner.png)
+
+## Presets (24 slots)
+
+The preset bar in the title bar: **< >** step through the stored presets,
+click the display for the full list (load, save to any slot, rename, clear),
+**SAVE** stores the rig in the current slot. A `*` means the rig changed since
+the preset was loaded or saved.
+
+The bank lives in `%APPDATA%\Jemini Guitar Rig\Presets.xml`, shared by every
+Cubase project and the standalone app. A preset stores the whole rig including
+the NAM model / IR files; the six factory presets keep whatever models and IRs
+you have loaded.

@@ -11,6 +11,7 @@
 #include "Modules/LexReverb.h"
 #include "Modules/IRVerb.h"
 #include "Modules/Tuner.h"
+#include "PresetManager.h"
 
 //==============================================================================
 // Jemini Guitar Rig
@@ -98,6 +99,11 @@ public:
     }
     // Input peak since the last call (after the INPUT knob), for the signal LED
     float takeInputPeak() { return inputPeak.exchange (0.0f); }
+
+    // Presets (message thread)
+    PresetManager& getPresets() { return *presets; }
+    juce::ValueTree capturePreset();                    // rig only (no look / tuner)
+    void applyPreset (const juce::ValueTree& preset);   // keeps the look
 
     // Skin index (GUI look), saved with the project / app settings
     int getSkin() const { return (int) apvts.state.getProperty ("skin", 0); }
@@ -193,6 +199,10 @@ private:
     IRVerb irVerb;
     std::vector<float> monoScratch;   // right channel stand-in on mono tracks
     std::array<std::atomic<float>, 2> outputPeak { 0.0f, 0.0f };
+
+    void restoreFiles (bool onlyIfChanged);   // reload NAM / IR files named in the state
+
+    std::unique_ptr<PresetManager> presets;   // created at the end of the constructor
 
     NoiseGate noiseGate;
     Vibe vibe;

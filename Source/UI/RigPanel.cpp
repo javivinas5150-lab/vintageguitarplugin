@@ -316,6 +316,39 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
 
     addChildComponent (tunerOverlay);
 
+    // --- Presets ---
+    for (auto* b : { &presetPrev, &presetNext, &presetSave })
+    {
+        b->getProperties().set ("style", "presetButton");
+        addAndMakeVisible (*b);
+    }
+    presetPrev.setTooltip ("Previous preset");
+    presetNext.setTooltip ("Next preset");
+    presetSave.setTooltip ("Save the rig in the current preset slot");
+
+    auto step = [this] (int dir)
+    {
+        auto& bank = audioProcessor.getPresets();
+        int slot = bank.getCurrent();
+        for (int n = 0; n < PresetManager::numSlots; ++n)      // skip empty slots
+        {
+            slot = (slot + dir + PresetManager::numSlots) % PresetManager::numSlots;
+            if (bank.load (slot)) break;
+        }
+        refreshPresetDisplay();
+    };
+    presetPrev.onClick = [step] { step (-1); };
+    presetNext.onClick = [step] { step (+1); };
+    presetSave.onClick = [this]
+    {
+        auto& bank = audioProcessor.getPresets();
+        int slot = bank.getCurrent();
+        if (slot < 0)
+            for (int i = 0; i < PresetManager::numSlots && slot < 0; ++i)
+                if (bank.isEmpty (i)) slot = i;
+        askNameAndStore (juce::jmax (0, slot));
+    };
+
     skinIndex = juce::jlimit (0, (int) skins::all().size() - 1, audioProcessor.getSkin());
     skinBox.setSelectedItemIndex (skinIndex, juce::dontSendNotification);
     buildTextures();
@@ -326,6 +359,7 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     refreshIRVerbInfo();
     updateDriveType();
     syncTuner();
+    refreshPresetDisplay();
     shownInput = audioProcessor.getInputChannel();
     for (int i = 0; i < 2; ++i)
         inputButtons[(size_t) i].setToggleState (i == shownInput, juce::dontSendNotification);
@@ -620,6 +654,8 @@ void RigPanel::timerCallback()
 
     syncTuner();
 
+    if (++presetTick >= 10) { presetTick = 0; refreshPresetDisplay(); }
+
     // Input signal LED (green = signal, red = clipping) and input 1/2 buttons
     const float inPeak = audioProcessor.takeInputPeak();
     inputLevel = juce::jmax (inPeak, inputLevel * 0.8f);
@@ -639,6 +675,89 @@ void RigPanel::timerCallback()
     }
 }
 
+//==============================================================================
+// PRESETS
+//==============================================================================
+void RigPanel::refreshPresetDisplay()
+{
+    auto& bank = audioProcessor.getPresets();
+    const int cur = bank.getCurrent();
+    const auto text = cur < 0 ? juce::String ("--  NO PRESET")
+                              : juce::String (cur + 1).paddedLeft ('0', 2) + "  " + bank.getName (cur) + (bank.isModified() ? " *" : "");
+    if (text != presetText)
+    {
+        presetText = text;
+        repaint (presetDisplayArea.expanded (4));
+    }
+}
+
+void RigPanel::showPresetMenu()
+{
+    auto& bank = audioProcessor.getPresets();
+    const int cur = bank.getCurrent();
+
+    juce::PopupMenu m, saveTo;
+    m.addSectionHeader ("PRESETS");
+    for (int i = 0; i < PresetManager::numSlots; ++i)
+    {
+        const auto label = juce::String (i + 1).paddedLeft ('0', 2) + "   " + bank.getName (i);
+        m.addItem (i + 1, label, ! bank.isEmpty (i), i == cur);
+        saveTo.addItem (200 + i, label);
+    }
+    m.addSeparator();
+    m.addItem (100, cur >= 0 ? "Save to " + juce::String (cur + 1).paddedLeft ('0', 2) + "..." : juce::String ("Save..."));
+    m.addSubMenu ("Save to slot", saveTo);
+    m.addItem (300, "Rename current...", cur >= 0 && ! bank.isEmpty (cur));
+    m.addItem (301, "Clear current", cur >= 0 && ! bank.isEmpty (cur));
+
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea (localAreaToGlobal (presetDisplayArea)),
+                     [this, safe = juce::Component::SafePointer<RigPanel> (this)] (int r)
+    {
+        if (safe == nullptr || r == 0) return;
+        auto& b = audioProcessor.getPresets();
+        const int current = b.getCurrent();
+
+        if (r >= 1 && r <= PresetManager::numSlots)       b.load (r - 1);
+        else if (r == 100)                                 presetSave.onClick();
+        else if (r >= 200 && r < 200 + PresetManager::numSlots) askNameAndStore (r - 200);
+        else if (r == 301 && current >= 0)                 b.clear (current);
+        else if (r == 300 && current >= 0)
+        {
+            auto* w = new juce::AlertWindow ("Rename preset", "New name for preset " + juce::String (current + 1) + ":",
+                                             juce::MessageBoxIconType::NoIcon);
+            w->addTextEditor ("name", b.getName (current));
+            w->addButton ("Rename", 1, juce::KeyPress (juce::KeyPress::returnKey));
+            w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+            w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, current] (int res)
+            {
+                if (res == 1) audioProcessor.getPresets().rename (current, w->getTextEditorContents ("name"));
+                refreshPresetDisplay();
+            }), true);
+        }
+        refreshPresetDisplay();
+    });
+}
+
+void RigPanel::askNameAndStore (int slot)
+{
+    auto& bank = audioProcessor.getPresets();
+    const auto suggested = bank.isEmpty (slot) ? juce::String() : bank.getName (slot);
+
+    auto* w = new juce::AlertWindow ("Save preset " + juce::String (slot + 1).paddedLeft ('0', 2),
+                                     bank.isEmpty (slot) ? juce::String ("Name for the new preset:")
+                                                         : "This replaces \"" + bank.getName (slot) + "\". Name:",
+                                     juce::MessageBoxIconType::NoIcon);
+    w->addTextEditor ("name", suggested);
+    w->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    w->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+    w->enterModalState (true, juce::ModalCallbackFunction::create ([this, w, slot] (int res)
+    {
+        if (res == 1)
+            audioProcessor.getPresets().store (slot, w->getTextEditorContents ("name"));
+        refreshPresetDisplay();
+    }), true);
+}
+
 juce::Point<float> RigPanel::jackCentre (int index) const
 {
     return { (float) ampPanelArea.getX() + 36.0f + (float) index * 46.0f, (float) ampPanelArea.getY() + 56.0f };
@@ -646,6 +765,12 @@ juce::Point<float> RigPanel::jackCentre (int index) const
 
 void RigPanel::mouseDown (const juce::MouseEvent& e)
 {
+    if (presetDisplayArea.contains (e.getPosition()))
+    {
+        showPresetMenu();
+        return;
+    }
+
     for (int j = 0; j < 2; ++j)
         if (e.position.getDistanceFrom (jackCentre (j)) < 15.0f)
             audioProcessor.setInputChannel (j);
@@ -654,7 +779,8 @@ void RigPanel::mouseDown (const juce::MouseEvent& e)
 void RigPanel::mouseMove (const juce::MouseEvent& e)
 {
     const bool overJack = e.position.getDistanceFrom (jackCentre (0)) < 15.0f
-                       || e.position.getDistanceFrom (jackCentre (1)) < 15.0f;
+                       || e.position.getDistanceFrom (jackCentre (1)) < 15.0f
+                       || presetDisplayArea.contains (e.getPosition());
     setMouseCursor (overJack ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
 }
 
@@ -730,6 +856,10 @@ void RigPanel::resized()
     titleBar   = { 0, 0, designWidth, 48 };
     skinBox.setBounds (66, 11, 150, 26);
     tunerButton.setBounds (designWidth - 128, 10, 112, 28);
+    presetPrev.setBounds (844, 11, 26, 26);
+    presetDisplayArea = { 874, 10, 178, 28 };
+    presetNext.setBounds (1056, 11, 26, 26);
+    presetSave.setBounds (1088, 11, 54, 26);
     tunerOverlay.setBounds (getLocalBounds());
     vibeArea   = { 14, 58, 300, 220 };
     odArea     = { 14, 288, 300, 220 };
@@ -1083,6 +1213,27 @@ void RigPanel::paint (juce::Graphics& g)
     g.setColour (sk.titleText.withAlpha (0.7f));
     g.setFont (LnF::condensed (15.0f));
     g.drawText ("SKIN", juce::Rectangle<int> (18, 11, 44, 26), juce::Justification::centredRight, false);
+
+    // Preset display: recessed LCD window in the rack display colour
+    {
+        const auto d = presetDisplayArea.toFloat();
+        g.setColour (juce::Colour (0xff050506));
+        g.fillRoundedRectangle (d, 4.0f);
+        juce::ColourGradient glass (sk.displayGlass, d.getX(), d.getY(), sk.displayGlass.darker (0.8f), d.getX(), d.getBottom(), false);
+        g.setGradientFill (glass);
+        g.fillRoundedRectangle (d.reduced (2.0f), 3.0f);
+        realism::innerShadow (g, d.reduced (2.0f), 3.0f, 4.0f, 0.9f);
+        g.setColour (juce::Colours::white.withAlpha (0.14f));
+        g.drawRoundedRectangle (d.translated (0.0f, 1.0f), 4.0f, 0.7f);
+
+        const auto t = d.reduced (9.0f, 2.0f);
+        g.setFont (LnF::display (16.0f));
+        g.setColour (sk.display.withAlpha (0.25f));
+        g.drawText (presetText, t.translated (0.0f, 1.0f), juce::Justification::centredLeft, true);
+        g.setColour (sk.display.brighter (0.2f));
+        g.drawText (presetText, t, juce::Justification::centredLeft, true);
+        realism::sheen (g, d.reduced (2.0f), 3.0f, 0.08f);
+    }
 
     // ---- Pedals ----
     drawPedal (g, vibeArea.toFloat(), sk.vibeTop, sk.vibeBottom);

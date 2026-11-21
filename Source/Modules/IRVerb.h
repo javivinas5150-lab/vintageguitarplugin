@@ -40,6 +40,7 @@ public:
     // GUI info
     bool hasIR() const                  { return irLoaded.load(); }
     juce::String getIRName() const      { return irFile.getFileNameWithoutExtension(); }
+    juce::File getIRFile() const        { return irFile; }
     double getIRLengthSeconds() const   { return irLengthSeconds.load(); }
 
     static juce::String getSupportedWildcard() { return "*.wav;*.aif;*.aiff;*.flac"; }

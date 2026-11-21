@@ -156,6 +156,15 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File lastNamFolder, lastCabFolder, lastIRVFolder, lastPedalFolder;
 
+    // Presets (title bar)
+    void showPresetMenu();
+    void askNameAndStore (int slot);
+    void refreshPresetDisplay();
+    juce::TextButton presetPrev { "<" }, presetNext { ">" }, presetSave { "SAVE" };
+    juce::Rectangle<int> presetDisplayArea;
+    juce::String presetText;
+    int presetTick = 0;
+
     // Title bar + tuner (declared last: needs audioProcessor)
     juce::ComboBox skinBox;
     juce::TextButton tunerButton { "TUNER" };
