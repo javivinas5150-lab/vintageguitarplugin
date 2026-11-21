@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "Modules/NamAmp.h"
+#include "Modules/ToneStack.h"
 
 //==============================================================================
 // Vintage Guitar Suite - Phase 2
@@ -63,8 +64,15 @@ private:
     std::atomic<float>* inputGainDb  = nullptr;
     std::atomic<float>* outputGainDb = nullptr;
     std::atomic<float>* ampBypass    = nullptr;
+    std::atomic<float>* ampGainDb    = nullptr;
+    std::atomic<float>* ampBassDb    = nullptr;
+    std::atomic<float>* ampMiddleDb  = nullptr;
+    std::atomic<float>* ampTrebleDb  = nullptr;
+    std::atomic<float>* ampVolumeDb  = nullptr;
 
     NamAmp namAmp;
+    ToneStack toneStack;
+    juce::SmoothedValue<float> ampGain, ampVolume;
 
     // Smoothing avoids clicks/zipper noise when a knob is moved
     juce::SmoothedValue<float> inputGain;

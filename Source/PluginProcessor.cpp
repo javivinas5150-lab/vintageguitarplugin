@@ -11,6 +11,11 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     inputGainDb  = apvts.getRawParameterValue ("inputGain");
     outputGainDb = apvts.getRawParameterValue ("outputGain");
     ampBypass    = apvts.getRawParameterValue ("ampBypass");
+    ampGainDb    = apvts.getRawParameterValue ("ampGain");
+    ampBassDb    = apvts.getRawParameterValue ("ampBass");
+    ampMiddleDb  = apvts.getRawParameterValue ("ampMiddle");
+    ampTrebleDb  = apvts.getRawParameterValue ("ampTreble");
+    ampVolumeDb  = apvts.getRawParameterValue ("ampVolume");
 }
 
 //==============================================================================
@@ -55,6 +60,21 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "ampBypass", 1 }, "Amp Bypass", false));
 
+    // Amp controls
+    const auto addDb = [&layout] (const juce::String& id, const juce::String& name, float range)
+    {
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { id, 1 }, name,
+            juce::NormalisableRange<float> (-range, range, 0.1f), 0.0f,
+            juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    };
+
+    addDb ("ampGain",   "Amp Gain",   20.0f);  // drive into the NAM model
+    addDb ("ampBass",   "Amp Bass",   10.0f);
+    addDb ("ampMiddle", "Amp Middle", 10.0f);
+    addDb ("ampTreble", "Amp Treble", 10.0f);
+    addDb ("ampVolume", "Amp Volume", 20.0f);
+
     return layout;
 }
 
@@ -62,6 +82,12 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
 void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     namAmp.prepare (sampleRate, samplesPerBlock);
+    toneStack.prepare (sampleRate);
+
+    ampGain.reset   (sampleRate, 0.05);
+    ampVolume.reset (sampleRate, 0.05);
+    ampGain.setCurrentAndTargetValue   (juce::Decibels::decibelsToGain (ampGainDb->load()));
+    ampVolume.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (ampVolumeDb->load()));
 
     // 50 ms ramp when a knob changes
     inputGain.reset  (sampleRate, 0.05);
@@ -105,11 +131,23 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // 2) (Phase 4) Uni-Vibe -> Klon-style OD will go here
 
-    // 3) NAM amp - models are mono: process the first channel,
+    // 3) Amp: GAIN -> NAM model -> BASS/MIDDLE/TREBLE -> VOLUME
+    //    NAM models are mono: process the first channel,
     //    then copy the result to the other channel(s)
     if (ampBypass->load() < 0.5f && namAmp.hasModel())
     {
-        namAmp.process (buffer.getWritePointer (0), numSamples);
+        auto* amp = buffer.getWritePointer (0);
+
+        ampGain.setTargetValue (juce::Decibels::decibelsToGain (ampGainDb->load()));
+        ampGain.applyGain (amp, numSamples);
+
+        namAmp.process (amp, numSamples);
+
+        toneStack.setGains (ampBassDb->load(), ampMiddleDb->load(), ampTrebleDb->load());
+        toneStack.process (amp, numSamples);
+
+        ampVolume.setTargetValue (juce::Decibels::decibelsToGain (ampVolumeDb->load()));
+        ampVolume.applyGain (amp, numSamples);
 
         for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
             buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);

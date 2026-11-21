@@ -23,6 +23,10 @@
               file="Source/Modules/NamAmp.h"/>
         <FILE id="f1f868c" name="NamAmp.cpp" compile="1" resource="0"
               file="Source/Modules/NamAmp.cpp"/>
+        <FILE id="fTnStH" name="ToneStack.h" compile="0" resource="0"
+              file="Source/Modules/ToneStack.h"/>
+        <FILE id="fTnStC" name="ToneStack.cpp" compile="1" resource="0"
+              file="Source/Modules/ToneStack.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="gNam001" name="NAM">
