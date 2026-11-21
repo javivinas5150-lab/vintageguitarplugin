@@ -285,8 +285,9 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
 
     // Black bakelite cap: shadow on the skirt, knurled edge, glossy top
     realism::softShadowEllipse (g, c, capR, capR * 0.25f, { capR * 0.05f, capR * 0.15f }, 0.4f);
-    juce::ColourGradient cap (ampKnobCap.interpolatedWith (juce::Colours::white, 0.25f), c.translated (-capR * 0.4f, -capR * 0.6f),
-                              ampKnobCap.interpolatedWith (juce::Colours::black, 0.6f), c.translated (capR * 0.5f, capR * 0.7f), true);
+    const bool creamCap = ampKnobCap.getPerceivedBrightness() > 0.5f;
+    juce::ColourGradient cap (ampKnobCap.interpolatedWith (juce::Colours::white, creamCap ? 0.45f : 0.25f), c.translated (-capR * 0.4f, -capR * 0.6f),
+                              ampKnobCap.interpolatedWith (juce::Colour (0xff3a2c18), creamCap ? 0.35f : 0.6f), c.translated (capR * 0.5f, capR * 0.7f), true);
     g.setGradientFill (cap);
     g.fillEllipse (juce::Rectangle<float> (capR * 2.0f, capR * 2.0f).withCentre (c));
     g.setColour (juce::Colours::white.withAlpha (0.09f));

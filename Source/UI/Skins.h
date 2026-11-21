@@ -65,8 +65,7 @@ namespace skins
                 s.piping = juce::Colour (0xfff3ecdc);
                 s.panelTop = juce::Colour (0xff202024); s.panelBottom = juce::Colour (0xff060607);
                 s.panelText = juce::Colour (0xffe9dfc6); s.panelTrim = juce::Colour (0xffb9b4a6);
-                s.knobCap = juce::Colour (0xff0a0a0b); s.knobNumbers = juce::Colour (0xfff2ece0);
-                s.chickenKnobs = true;
+                s.knobCap = juce::Colour (0xffeedfb8); s.knobNumbers = juce::Colour (0xfff2ece0);
                 s.logo = juce::Colour (0xffe9dfc6);
                 s.vibeTop = juce::Colour (0xff4a3a62); s.vibeBottom = juce::Colour (0xff241a33); s.vibeText = juce::Colour (0xffe9dfc6);
                 s.goldTop = juce::Colour (0xffe4c46e); s.goldBottom = juce::Colour (0xffa9822f); s.goldText = juce::Colour (0xff1a1714);
