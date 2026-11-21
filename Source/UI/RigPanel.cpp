@@ -10,6 +10,8 @@ namespace
     const juce::Colour vibePurpleBottom (0xff241a33);
     const juce::Colour goldTop          (0xffe4c46e);
     const juce::Colour goldBottom       (0xffa9822f);
+    const juce::Colour namTop           (0xff3f4a44);   // NAM DRIVE: dark olive-green steel
+    const juce::Colour namBottom        (0xff1a201d);
     const juce::Colour rackFace         (0xff1b2030);
     const juce::Colour rackBlue         (0xff1f5fd0);
     const juce::Colour displayRed       (0xffff3a2a);
@@ -180,6 +182,27 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     setupKnob (odOutput, "odOutput", "OUTPUT", "pedal", ValueBox::none, 1, {}, ink);
     setupToggle (odOn, odOnAttachment, "odOn", "footswitch", ink);
 
+    // --- NAM DRIVE (alternative pedal in the same slot) ---
+    setupKnob (pnamInput,  "pnamInput",  "INPUT",  "pedal", ValueBox::none, 1, "dB", cream);
+    setupKnob (pnamTone,   "pnamTone",   "TONE",   "pedal", ValueBox::none, 1, "dB", cream);
+    setupKnob (pnamOutput, "pnamOutput", "OUTPUT", "pedal", ValueBox::none, 1, "dB", cream);
+    setupToggle (odType, odTypeAttachment, "odType", "modeSwitch", ink);
+    odType.onStateChange = [this] { updateDriveType(); };
+
+    setupTextButton (loadPedalButton);
+    setupTextButton (clearPedalButton);
+    loadPedalButton.onClick  = [this] { choosePedalFile(); };
+    clearPedalButton.onClick = [this] { audioProcessor.clearPedalModel(); refreshPedalInfo(); };
+    clearPedalButton.setTooltip ("Unload pedal model");
+    loadPedalButton.setTooltip ("Load a NAM capture of a drive pedal");
+
+    pedalNameLabel.setJustificationType (juce::Justification::centredLeft);
+    pedalNameLabel.setFont (LnF::display (15.0f));
+    pedalNameLabel.setColour (juce::Label::textColourId, juce::Colour (0xff8fe0a0));
+    pedalNameLabel.setMinimumHorizontalScale (0.5f);
+    pedalNameLabel.setInterceptsMouseClicks (false, false);
+    addAndMakeVisible (pedalNameLabel);
+
     for (auto* b : { &vibeOn, &odOn })
         b->onStateChange = [this] { repaint (vibeLedArea.expanded (8)); repaint (odLedArea.expanded (8)); };
 
@@ -270,7 +293,7 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     setupKnob (input,  "inputGain",  "INPUT",  "pedal", ValueBox::below, 1, "dB", cream);
     setupKnob (output, "outputGain", "OUTPUT", "pedal", ValueBox::below, 1, "dB", cream);
 
-    lastNamFolder = lastCabFolder = lastIRVFolder
+    lastNamFolder = lastCabFolder = lastIRVFolder = lastPedalFolder
         = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
 
     buildTextures();
@@ -279,6 +302,7 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     refreshAmpInfo();
     refreshCabInfo();
     refreshIRVerbInfo();
+    updateDriveType();
     startTimerHz (30);
 
     setSize (designWidth, designHeight);
@@ -404,6 +428,60 @@ void RigPanel::chooseNamFile()
     });
 }
 
+void RigPanel::choosePedalFile()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Choose a NAM drive pedal capture", lastPedalFolder, "*.nam");
+
+    fileChooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+                              [this] (const juce::FileChooser& fc)
+    {
+        const auto file = fc.getResult();
+        if (file == juce::File())
+            return;
+
+        lastPedalFolder = file.getParentDirectory();
+
+        if (const auto error = audioProcessor.loadPedalModel (file); error.isNotEmpty())
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, JucePlugin_Name, error);
+
+        refreshPedalInfo();
+    });
+}
+
+void RigPanel::refreshPedalInfo()
+{
+    const auto& pedal = audioProcessor.getPedalNam();
+    const auto name = pedal.hasModel() ? pedal.getModelName().toUpperCase() : juce::String ("NO MODEL");
+
+    if (pedalNameLabel.getText() != name)
+        pedalNameLabel.setText (name, juce::dontSendNotification);
+
+    clearPedalButton.setEnabled (pedal.hasModel());
+}
+
+void RigPanel::updateDriveType()
+{
+    namPedalShown = odType.getToggleState();
+
+    for (auto* k : { &odGain, &odTreble, &odOutput })
+    {
+        k->slider.setVisible (! namPedalShown);
+        k->label.setVisible (! namPedalShown);
+    }
+
+    for (auto* k : { &pnamInput, &pnamTone, &pnamOutput })
+    {
+        k->slider.setVisible (namPedalShown);
+        k->label.setVisible (namPedalShown);
+    }
+
+    for (auto* c : std::initializer_list<juce::Component*> { &loadPedalButton, &clearPedalButton, &pedalNameLabel })
+        c->setVisible (namPedalShown);
+
+    refreshPedalInfo();
+    repaint (odArea.expanded (4));
+}
+
 void RigPanel::chooseIRFile()
 {
     fileChooser = std::make_unique<juce::FileChooser> ("Choose a cabinet IR", lastCabFolder, CabIR::getSupportedWildcard());
@@ -507,6 +585,7 @@ void RigPanel::timerCallback()
     }
 
     refreshAmpInfo();
+    refreshPedalInfo();
     refreshCabInfo();
     refreshIRVerbInfo();
 }
@@ -564,6 +643,26 @@ void RigPanel::resized()
         }
         odLedArea = juce::Rectangle<int> (12, 12).withCentre ({ a.getX() + 150, a.getY() + 160 });
         odOn.setBounds (juce::Rectangle<int> (40, 40).withCentre ({ a.getX() + 150, a.getY() + 192 }));
+
+        // GOLD / NAM selector (bottom-left, like the Vibe's mode switch)
+        odType.setBounds (a.getX() + 58 - 20, a.getY() + 182, 40, 24);
+
+        // NAM DRIVE: model window under the title, smaller knobs below it
+        pedalWindowArea = { a.getX() + 22, a.getY() + 52, a.getWidth() - 44, 26 };
+        auto win = pedalWindowArea.reduced (3, 2);
+        clearPedalButton.setBounds (win.removeFromRight (22));
+        win.removeFromRight (4);
+        loadPedalButton.setBounds (win.removeFromRight (52));
+        win.removeFromRight (6);
+        pedalNameLabel.setBounds (win.withTrimmedLeft (6));
+
+        const int namKnob = 54;
+        const std::array<Knob*, 3> namKnobs { &pnamInput, &pnamTone, &pnamOutput };
+        for (size_t i = 0; i < 3; ++i)
+        {
+            namKnobs[i]->slider.setBounds (a.getX() + xs[i] - namKnob / 2, a.getY() + 81, namKnob, namKnob);
+            namKnobs[i]->label.setBounds  (a.getX() + xs[i] - 45, a.getY() + 133, 90, 19);
+        }
     }
 
     // ---- AMP HEAD ----
@@ -789,11 +888,43 @@ void RigPanel::paint (juce::Graphics& g)
     g.drawText ("VIBRATO", juce::Rectangle<int> (vibeArea.getX() + 114, vibeArea.getY() + 182, 56, 16), juce::Justification::centredLeft, false);
     drawLed (g, vibeLedArea, vibeOn.getToggleState(), LnF::redLed);
 
-    drawPedal (g, odArea.toFloat(), goldTop, goldBottom);
-    g.setColour (juce::Colours::white.withAlpha (0.35f));
-    LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (1, 7).toFloat(), 30.0f, juce::Justification::centred);
-    g.setColour (LnF::ink);
-    LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (0, 6).toFloat(), 30.0f, juce::Justification::centred);
+    if (! namPedalShown)
+    {
+        drawPedal (g, odArea.toFloat(), goldTop, goldBottom);
+        g.setColour (juce::Colours::white.withAlpha (0.35f));
+        LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (1, 7).toFloat(), 30.0f, juce::Justification::centred);
+        g.setColour (LnF::ink);
+        LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (0, 6).toFloat(), 30.0f, juce::Justification::centred);
+    }
+    else
+    {
+        drawPedal (g, odArea.toFloat(), namTop, namBottom);
+        g.setColour (juce::Colours::black.withAlpha (0.4f));
+        LnF::drawSlantedLogo (g, "NAM DRIVE", odArea.withHeight (50).translated (1, 6).toFloat(), 28.0f, juce::Justification::centred);
+        g.setColour (LnF::cream);
+        LnF::drawSlantedLogo (g, "NAM DRIVE", odArea.withHeight (50).translated (0, 4).toFloat(), 28.0f, juce::Justification::centred);
+
+        // Model window: dark recessed LCD-style strip
+        const auto win = pedalWindowArea.toFloat();
+        g.setColour (juce::Colour (0xff070908));
+        g.fillRoundedRectangle (win, 4.0f);
+        realism::innerShadow (g, win, 4.0f, 5.0f, 0.9f);
+        g.setColour (juce::Colours::white.withAlpha (0.16f));
+        g.drawRoundedRectangle (win.translated (0.0f, 1.0f), 4.0f, 0.7f);
+        g.setColour (juce::Colours::black.withAlpha (0.8f));
+        g.drawRoundedRectangle (win, 4.0f, 1.0f);
+    }
+
+    // GOLD / NAM selector labels
+    {
+        const auto labelColour = namPedalShown ? LnF::cream : LnF::ink;
+        const auto sw = odType.getBounds();
+        g.setFont (LnF::condensed (14.0f));
+        g.setColour (labelColour.withAlpha (namPedalShown ? 0.55f : 1.0f));
+        g.drawText ("GOLD", juce::Rectangle<int> (sw.getX() - 40, sw.getY(), 38, sw.getHeight()), juce::Justification::centredRight, false);
+        g.setColour (labelColour.withAlpha (namPedalShown ? 1.0f : 0.55f));
+        g.drawText ("NAM", juce::Rectangle<int> (sw.getRight() + 3, sw.getY(), 38, sw.getHeight()), juce::Justification::centredLeft, false);
+    }
     drawLed (g, odLedArea, odOn.getToggleState(), LnF::redLed);
 
     // ---- Amp, rack, bottom strip ----

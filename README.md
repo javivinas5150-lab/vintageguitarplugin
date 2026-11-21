@@ -55,3 +55,12 @@ On first launch open **Options → Audio/MIDI Settings**, choose your audio
 interface (ASIO driver if available), enable the input your guitar is on
 (input 1 is used) and untick **Mute audio input** (it is muted by default to
 avoid feedback through speakers — use headphones or an amp/monitor setup).
+
+## Drive slot: Gold Drive or NAM pedal
+
+The second pedal slot holds either the built-in **Gold Drive** or a **NAM
+DRIVE**: a NAM capture of a real drive pedal. Flip the GOLD / NAM switch on the
+pedal. The NAM pedal keeps the capture's real level (no loudness
+normalisation) and has INPUT, TONE (treble shelf) and OUTPUT controls. The
+footswitch turns whichever pedal is selected on or off; the model path is
+saved with the project.

@@ -32,6 +32,11 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
 
     odOn     = apvts.getRawParameterValue ("odOn");
     odGain   = apvts.getRawParameterValue ("odGain");
+    odType     = apvts.getRawParameterValue ("odType");
+    pnamInput  = apvts.getRawParameterValue ("pnamInput");
+    pnamTone   = apvts.getRawParameterValue ("pnamTone");
+    pnamOutput = apvts.getRawParameterValue ("pnamOutput");
+    pedalNam.setLoudnessNormalisation (false);   // keep the pedal's real level
     odTreble = apvts.getRawParameterValue ("odTreble");
     odOutput = apvts.getRawParameterValue ("odOutput");
 
@@ -87,6 +92,23 @@ namespace
     const juce::Identifier namModelPathId ("namModelPath");
     const juce::Identifier cabIRPathId    ("cabIRPath");
     const juce::Identifier irVerbPathId   ("irVerbPath");
+    const juce::Identifier pedalNamPathId ("pedalNamPath");
+}
+
+juce::String VintageGuitarSuiteAudioProcessor::loadPedalModel (const juce::File& file)
+{
+    auto error = pedalNam.loadModel (file);
+
+    if (error.isEmpty())
+        apvts.state.setProperty (pedalNamPathId, file.getFullPathName(), nullptr);
+
+    return error;
+}
+
+void VintageGuitarSuiteAudioProcessor::clearPedalModel()
+{
+    pedalNam.clearModel();
+    apvts.state.removeProperty (pedalNamPathId, nullptr);
 }
 
 juce::String VintageGuitarSuiteAudioProcessor::loadIRVerb (const juce::File& file)
@@ -241,6 +263,22 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addKnob10 ("odTreble", "Drive Treble", 5.0f);
     addKnob10 ("odOutput", "Drive Output", 5.0f);
 
+    // Drive slot type: built-in Gold Drive or a NAM capture of a drive pedal
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "odType", 1 }, "Drive Type",
+        juce::StringArray { "Gold Drive", "NAM Pedal" }, 0));
+
+    const auto addDbRange = [&layout] (const juce::String& id, const juce::String& name, float min, float max, float def)
+    {
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float> (min, max, 0.1f), def,
+            juce::AudioParameterFloatAttributes().withLabel ("dB")));
+    };
+
+    addDbRange ("pnamInput",  "NAM Pedal Input",  -18.0f, 18.0f, 0.0f);
+    addDbRange ("pnamTone",   "NAM Pedal Tone",   -12.0f, 12.0f, 0.0f);
+    addDbRange ("pnamOutput", "NAM Pedal Output", -24.0f, 12.0f, 0.0f);
+
     // Rack: Delay
     const auto addFloat = [&layout] (const juce::String& id, const juce::String& name,
                                      float min, float max, float def, float centre,
@@ -299,6 +337,12 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
     irVerb.prepare (sampleRate, samplesPerBlock);
     monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
+    pedalNam.prepare (sampleRate, samplesPerBlock);
+    pedalTone.prepare (sampleRate);
+    pedalInGain.reset  (sampleRate, 0.05);
+    pedalOutGain.reset (sampleRate, 0.05);
+    pedalInGain.setCurrentAndTargetValue  (juce::Decibels::decibelsToGain (pnamInput->load()));
+    pedalOutGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (pnamOutput->load()));
     toneStack.prepare (sampleRate);
 
     ampGain.reset   (sampleRate, 0.05);
@@ -366,10 +410,33 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         vibe.process (mono, numSamples);
     }
 
+    // Drive slot: Gold Drive or NAM pedal (footswitch = odOn).
     // Gold Drive always runs (oversampling latency must stay constant);
-    // when it's off the signal just passes through clean.
+    // when it's off or the NAM pedal is selected it just passes through clean.
+    const bool driveOn  = odOn->load() > 0.5f;
+    const bool namPedal = odType->load() > 0.5f;
+
     goldDrive.setParameters (odGain->load(), odTreble->load(), odOutput->load());
-    goldDrive.process (mono, numSamples, odOn->load() > 0.5f);
+    goldDrive.process (mono, numSamples, driveOn && ! namPedal);
+
+    pedalInGain.setTargetValue  (juce::Decibels::decibelsToGain (pnamInput->load()));
+    pedalOutGain.setTargetValue (juce::Decibels::decibelsToGain (pnamOutput->load()));
+
+    if (driveOn && namPedal && pedalNam.hasModel())
+    {
+        pedalInGain.applyGain (mono, numSamples);
+        pedalNam.process (mono, numSamples);
+
+        pedalTone.setGains (0.0f, 0.0f, pnamTone->load());
+        pedalTone.process (mono, numSamples);
+
+        pedalOutGain.applyGain (mono, numSamples);
+    }
+    else
+    {
+        pedalInGain.skip (numSamples);
+        pedalOutGain.skip (numSamples);
+    }
 
     // 4) Amp: GAIN -> NAM model -> BASS/MIDDLE/TREBLE -> VOLUME
     if (ampBypass->load() < 0.5f && namAmp.hasModel())
@@ -495,6 +562,14 @@ void VintageGuitarSuiteAudioProcessor::setStateInformation (const void* data, in
             namAmp.loadModel (juce::File (path)); // if missing, the amp stays empty
         else
             namAmp.clearModel();
+
+        // ...and the NAM drive pedal
+        const auto pedalPath = apvts.state.getProperty (pedalNamPathId).toString();
+
+        if (pedalPath.isNotEmpty())
+            pedalNam.loadModel (juce::File (pedalPath));
+        else
+            pedalNam.clearModel();
 
         // ...and the cabinet IR
         const auto irPath = apvts.state.getProperty (cabIRPathId).toString();

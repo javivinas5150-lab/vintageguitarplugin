@@ -99,7 +99,7 @@ juce::String NamAmp::loadModel (const juce::File& file)
     newModel->Reset (currentSampleRate, maxBlock);
 
     float newGain = 1.0f;
-    if (newModel->HasLoudness())
+    if (normalise && newModel->HasLoudness())
         newGain = juce::Decibels::decibelsToGain ((float) (targetLoudnessDb - newModel->GetLoudness()));
 
     modelSampleRate.store (newModel->GetExpectedSampleRate());

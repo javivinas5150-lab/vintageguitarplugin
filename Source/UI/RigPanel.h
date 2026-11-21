@@ -49,6 +49,9 @@ private:
     void setupTextButton (juce::TextButton&);
 
     void chooseNamFile();
+    void choosePedalFile();
+    void refreshPedalInfo();
+    void updateDriveType();    // show Gold Drive or NAM pedal controls
     void chooseIRFile();
     void chooseIRVerbFile();
     void refreshAmpInfo();
@@ -90,8 +93,15 @@ private:
     std::unique_ptr<ButtonAttachment> vibeOnAttachment, vibeModeAttachment;
 
     Knob odGain, odTreble, odOutput;
-    juce::ToggleButton odOn;
-    std::unique_ptr<ButtonAttachment> odOnAttachment;
+    juce::ToggleButton odOn, odType;
+    std::unique_ptr<ButtonAttachment> odOnAttachment, odTypeAttachment;
+
+    // NAM drive pedal (same slot as the Gold Drive)
+    Knob pnamInput, pnamTone, pnamOutput;
+    juce::TextButton loadPedalButton { "LOAD" }, clearPedalButton { "X" };
+    juce::Label pedalNameLabel;
+    juce::Rectangle<int> pedalWindowArea;
+    bool namPedalShown = false;
 
     // Amp
     std::array<Knob, 5> ampKnobs;   // GAIN BASS MIDDLE TREBLE VOLUME
@@ -128,7 +138,7 @@ private:
 
     // Files
     std::unique_ptr<juce::FileChooser> fileChooser;
-    juce::File lastNamFolder, lastCabFolder, lastIRVFolder;
+    juce::File lastNamFolder, lastCabFolder, lastIRVFolder, lastPedalFolder;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (RigPanel)
 };

@@ -66,6 +66,11 @@ public:
     juce::String loadNamModel (const juce::File& file);
     void clearNamModel();
     const NamAmp& getNamAmp() const { return namAmp; }
+
+    // NAM drive pedal (same slot as the Gold Drive). Returns "" on success.
+    juce::String loadPedalModel (const juce::File& file);
+    void clearPedalModel();
+    const NamAmp& getPedalNam() const { return pedalNam; }
     bool isGateClosing() const { return gateOn->load() > 0.5f && noiseGate.isGating(); }
 
     // Cabinet IR (message thread). Returns "" on success.
@@ -117,6 +122,10 @@ private:
     std::atomic<float>* odGain   = nullptr;
     std::atomic<float>* odTreble = nullptr;
     std::atomic<float>* odOutput = nullptr;
+    std::atomic<float>* odType   = nullptr;   // 0 = Gold Drive, 1 = NAM pedal
+    std::atomic<float>* pnamInput  = nullptr;
+    std::atomic<float>* pnamTone   = nullptr;
+    std::atomic<float>* pnamOutput = nullptr;
 
     std::atomic<float>* dlyOn = nullptr;
     std::atomic<float>* dlyTime = nullptr;
@@ -153,6 +162,9 @@ private:
     CabIR cabIR;
     NamAmp namAmp;
     ToneStack toneStack;
+    NamAmp pedalNam;                 // NAM capture of a drive pedal
+    ToneStack pedalTone;             // its TONE knob (treble shelf)
+    juce::SmoothedValue<float> pedalInGain, pedalOutGain;
     juce::SmoothedValue<float> ampGain, ampVolume;
 
     // Smoothing avoids clicks/zipper noise when a knob is moved

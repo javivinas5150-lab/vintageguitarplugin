@@ -20,6 +20,10 @@ public:
     NamAmp();
     ~NamAmp();
 
+    // Amps are normalised to a common loudness; pedal captures should keep
+    // their real level (call before loading a model).
+    void setLoudnessNormalisation (bool shouldNormalise) { normalise = shouldNormalise; }
+
     // Call from prepareToPlay()
     void prepare (double sampleRate, int maxBlockSize);
 
@@ -46,6 +50,7 @@ private:
 
     std::vector<float> scratch;          // input copy for the model
     float normalisationGain = 1.0f;      // loudness normalisation (guarded by lock)
+    bool normalise = true;
 
     double currentSampleRate = 48000.0;
     int maxBlock = 512;
