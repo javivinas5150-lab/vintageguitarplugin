@@ -77,10 +77,22 @@ public:
     Tuner::Reading readTuner() { return tuner.analyse (tunerRef->load()); }
     bool isTunerOn() const { return tunerOn->load() > 0.5f; }
 
-    // Which interface input the guitar is on (0 = input 1, 1 = input 2)
-    int getInputChannel() const { return inputSelect->load() > 0.5f ? 1 : 0; }
+    // Which interface input the guitar is on (0 = input 1, 1 = input 2).
+    // In the standalone app the selection is made on the audio device itself
+    // (see StandaloneApp.cpp), which installs these two hooks.
+    std::function<int()> hostGetInput;
+    std::function<void (int)> hostSetInput;
+
+    int getInputChannel() const
+    {
+        if (hostGetInput) return hostGetInput();
+        return inputSelect->load() > 0.5f ? 1 : 0;
+    }
+
     void setInputChannel (int index)
     {
+        if (hostSetInput) { hostSetInput (index); index = 0; }   // device delivers it on channel 1
+
         if (auto* prm = apvts.getParameter ("inputSelect"))
             prm->setValueNotifyingHost (index > 0 ? 1.0f : 0.0f);
     }

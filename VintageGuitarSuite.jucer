@@ -3,7 +3,7 @@
 <JUCERPROJECT id="vGs5150" name="VintageGuitarSuite" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1"
               version="0.1.0" companyName="Javi Vinas" bundleIdentifier="com.javivinas.vintageguitarsuite"
-              cppLanguageStandard="20" defines="NAM_SAMPLE_FLOAT=1&#10;NOMINMAX=1"
+              cppLanguageStandard="20" defines="NAM_SAMPLE_FLOAT=1&#10;NOMINMAX=1&#10;JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1"
               displaySplashScreen="0" pluginFormats="buildStandalone,buildVST3" pluginCharacteristicsValue=""
               pluginName="Jemini Guitar Rig" pluginDesc="Guitar amp, pedals and effects rig"
               pluginManufacturer="Javi Vinas" pluginManufacturerCode="Jv51"
@@ -14,6 +14,7 @@
             file="Source/PluginProcessor.h"/>
       <FILE id="fPrcC1" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
+      <FILE id="fStdApp" name="StandaloneApp.cpp" compile="1" resource="0" file="Source/StandaloneApp.cpp"/>
       <FILE id="fEdtH1" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
       <FILE id="fEdtC1" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>

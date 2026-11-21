@@ -52,9 +52,10 @@ The project also builds a standalone Windows app (no DAW needed):
 `Builds/VisualStudio2026/x64/Release/Standalone Plugin/JeminiGuitarRig.exe`.
 
 On first launch open **Options → Audio/MIDI Settings**, choose your audio
-interface (ASIO driver if available), enable the input your guitar is on
-(input 1 is used) and untick **Mute audio input** (it is muted by default to
-avoid feedback through speakers — use headphones or an amp/monitor setup).
+interface (ASIO driver if available) and pick the **Guitar input** (each
+interface input is listed separately: 1, 2, 3...). The amp's input jacks and
+the 1 / 2 buttons in the IN panel select the same thing. The input is not
+muted by default; tick the mute box only if you hear feedback.
 
 ## Drive slot: Gold Drive or NAM pedal
 
