@@ -357,6 +357,7 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
     monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
     tuner.prepare (sampleRate);
+    recorder.prepare (sampleRate);
     cabGain.reset (sampleRate, 0.05);
     cabGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (cabLevel->load()));
     pedalNam.prepare (sampleRate, samplesPerBlock);
@@ -567,6 +568,9 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     // Silent while tuning (like a real tuner pedal's mute)
     if (tunerOn->load() > 0.5f)
         buffer.clear();
+
+    // Standalone recorder: what you hear is what gets recorded
+    recorder.process (buffer, numSamples);
 
     // Peak levels for the OUTPUT meter (the GUI reads and resets them)
     for (int ch = 0; ch < juce::jmin (2, buffer.getNumChannels()); ++ch)

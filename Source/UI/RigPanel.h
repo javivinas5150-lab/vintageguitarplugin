@@ -22,7 +22,7 @@ public:
     explicit RigPanel (VintageGuitarSuiteAudioProcessor&);
     ~RigPanel() override = default;
 
-    static constexpr int designWidth = 1280, designHeight = 720;
+    static constexpr int designWidth = 1280, designHeight = 762;   // 720 rig + 42 footer
 
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
@@ -155,6 +155,13 @@ private:
     // Files
     std::unique_ptr<juce::FileChooser> fileChooser;
     juce::File lastNamFolder, lastCabFolder, lastIRVFolder, lastPedalFolder;
+
+    // Recorder (footer, standalone app only)
+    void toggleRecording();
+    juce::TextButton recButton { "REC" }, folderButton { "OPEN FOLDER" };
+    juce::Rectangle<int> footerBar, recTimeArea, recStatusArea;
+    juce::String recStatus;
+    double shownRecSeconds = -1.0;
 
     // Presets (title bar)
     void showPresetMenu();

@@ -316,6 +316,25 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
 
     addChildComponent (tunerOverlay);
 
+    // --- Recorder (standalone only) ---
+    recButton.getProperties().set ("style", "recButton");
+    recButton.setTooltip ("Record the processed sound to a WAV file");
+    recButton.onClick = [this] { toggleRecording(); };
+    folderButton.getProperties().set ("style", "presetButton");
+    folderButton.setTooltip ("Show the recordings folder");
+    folderButton.onClick = []
+    {
+        const auto folder = Recorder::getRecordingsFolder();
+        folder.createDirectory();
+        folder.startAsProcess();
+    };
+    if (audioProcessor.isStandalone())
+    {
+        addAndMakeVisible (recButton);
+        addAndMakeVisible (folderButton);
+        recStatus = "READY  -  records exactly what you hear (24-bit WAV)";
+    }
+
     // --- Presets ---
     for (auto* b : { &presetPrev, &presetNext, &presetSave })
     {
@@ -656,6 +675,19 @@ void RigPanel::timerCallback()
 
     if (++presetTick >= 10) { presetTick = 0; refreshPresetDisplay(); }
 
+    // Recording clock (and blinking lamp)
+    if (audioProcessor.isStandalone())
+    {
+        auto& rec = audioProcessor.getRecorder();
+        const double secs = rec.isRecording() ? rec.getSeconds() : -1.0;
+        if (rec.isRecording() || secs != shownRecSeconds)
+        {
+            shownRecSeconds = secs;
+            repaint (recTimeArea.expanded (4));
+            recButton.repaint();
+        }
+    }
+
     // Input signal LED (green = signal, red = clipping) and input 1/2 buttons
     const float inPeak = audioProcessor.takeInputPeak();
     inputLevel = juce::jmax (inPeak, inputLevel * 0.8f);
@@ -673,6 +705,31 @@ void RigPanel::timerCallback()
             inputButtons[(size_t) i].setToggleState (i == sel, juce::dontSendNotification);
         repaint (ampPanelArea);
     }
+}
+
+//==============================================================================
+// RECORDER
+//==============================================================================
+void RigPanel::toggleRecording()
+{
+    auto& rec = audioProcessor.getRecorder();
+
+    if (rec.isRecording())
+    {
+        rec.stop();
+        recStatus = "SAVED:  " + rec.getFile().getFileName();
+    }
+    else if (rec.start (Recorder::makeNewFileName()))
+    {
+        recStatus = "RECORDING  >  " + rec.getFile().getFileName();
+    }
+    else
+    {
+        recStatus = "CANNOT RECORD  -  start the audio in Options > Audio/MIDI Settings";
+    }
+
+    recButton.setToggleState (rec.isRecording(), juce::dontSendNotification);
+    repaint (footerBar);
 }
 
 //==============================================================================
@@ -856,6 +913,12 @@ void RigPanel::resized()
     titleBar   = { 0, 0, designWidth, 48 };
     skinBox.setBounds (66, 11, 150, 26);
     tunerButton.setBounds (designWidth - 128, 10, 112, 28);
+    footerBar     = { 0, 720, designWidth, 42 };
+    recButton.setBounds (22, 725, 32, 32);
+    recTimeArea   = { 64, 727, 118, 28 };
+    recStatusArea = { 196, 727, 900, 28 };
+    folderButton.setBounds (designWidth - 150, 728, 132, 26);
+
     presetPrev.setBounds (844, 11, 26, 26);
     presetDisplayArea = { 874, 10, 178, 28 };
     presetNext.setBounds (1056, 11, 26, 26);
@@ -1175,6 +1238,51 @@ void RigPanel::buildBackdrop()
         }
     }
 
+    // Footer: the same walnut, lit from above (its top edge catches the light)
+    {
+        const auto bar = footerBar.toFloat();
+        juce::ColourGradient wood (sk.woodTop, 0.0f, bar.getY(), sk.woodBottom, 0.0f, bar.getBottom(), false);
+        g.setGradientFill (wood);
+        g.fillRect (bar);
+        juce::Random rnd (43);
+        for (int i = 0; i < 60; ++i)
+        {
+            const float y = bar.getY() + rnd.nextFloat() * bar.getHeight();
+            g.setColour ((rnd.nextBool() ? juce::Colours::black : sk.woodGrain).withAlpha (0.04f + rnd.nextFloat() * 0.05f));
+            juce::Path grain;
+            grain.startNewSubPath (0.0f, y);
+            for (float x = 0.0f; x <= (float) designWidth; x += 160.0f)
+                grain.lineTo (x, y + std::sin (x * 0.004f + (float) i) * 2.0f);
+            g.strokePath (grain, juce::PathStrokeType (0.6f + rnd.nextFloat()));
+        }
+        g.setColour (juce::Colours::black.withAlpha (0.8f));
+        g.fillRect (bar.withHeight (2.0f));
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        g.fillRect (bar.withY (bar.getY() + 2.0f).withHeight (1.0f));
+
+        if (audioProcessor.isStandalone())
+        {
+            // recessed LCD windows for the clock and the status line
+            for (auto r : { recTimeArea.toFloat(), recStatusArea.toFloat() })
+            {
+                g.setColour (juce::Colour (0xff050506));
+                g.fillRoundedRectangle (r, 4.0f);
+                juce::ColourGradient glassGrad (sk.displayGlass, r.getX(), r.getY(), sk.displayGlass.darker (0.8f), r.getX(), r.getBottom(), false);
+                g.setGradientFill (glassGrad);
+                g.fillRoundedRectangle (r.reduced (2.0f), 3.0f);
+                realism::innerShadow (g, r.reduced (2.0f), 3.0f, 4.0f, 0.9f);
+                g.setColour (juce::Colours::white.withAlpha (0.14f));
+                g.drawRoundedRectangle (r.translated (0.0f, 1.0f), 4.0f, 0.7f);
+            }
+        }
+        else
+        {
+            g.setColour (sk.titleText.withAlpha (0.35f));
+            g.setFont (LnF::condensed (14.0f));
+            g.drawText ("JEMINI GUITAR RIG   -   NAM AMP  /  PEDALS  /  STUDIO EFFECTS", bar, juce::Justification::centred, false);
+        }
+    }
+
     // Soft shadows: a wide ambient one plus a tight contact one per unit
     auto castShadow = [&g] (juce::Rectangle<int> r, float corner)
     {
@@ -1233,6 +1341,31 @@ void RigPanel::paint (juce::Graphics& g)
         g.setColour (sk.display.brighter (0.2f));
         g.drawText (presetText, t, juce::Justification::centredLeft, true);
         realism::sheen (g, d.reduced (2.0f), 3.0f, 0.08f);
+    }
+
+    // Recorder clock + status (standalone)
+    if (audioProcessor.isStandalone())
+    {
+        auto& rec = audioProcessor.getRecorder();
+        const bool recording = rec.isRecording();
+        const double secs = recording ? rec.getSeconds() : 0.0;
+        const int mins = (int) (secs / 60.0);
+        const auto clock = juce::String (mins).paddedLeft ('0', 2) + ":" + juce::String (std::fmod (secs, 60.0), 1).paddedLeft ('0', 4);
+
+        const auto lcd = recTimeArea.toFloat().reduced (8.0f, 2.0f);
+        const auto colour = recording ? juce::Colour (0xffff4a3a) : sk.display.withAlpha (0.55f);
+        g.setFont (LnF::display (18.0f));
+        g.setColour (colour.withAlpha (0.25f));
+        g.drawText (clock, lcd.translated (0.0f, 1.0f), juce::Justification::centred, false);
+        g.setColour (colour);
+        g.drawText (clock, lcd, juce::Justification::centred, false);
+
+        g.setFont (LnF::display (15.0f));
+        g.setColour (recording ? juce::Colour (0xffff4a3a) : sk.display.withAlpha (0.8f));
+        g.drawText (recStatus, recStatusArea.toFloat().reduced (12.0f, 2.0f), juce::Justification::centredLeft, true);
+
+        realism::sheen (g, recTimeArea.toFloat().reduced (2.0f), 3.0f, 0.08f);
+        realism::sheen (g, recStatusArea.toFloat().reduced (2.0f), 3.0f, 0.06f);
     }
 
     // ---- Pedals ----
@@ -1299,7 +1432,7 @@ void RigPanel::paintOverChildren (juce::Graphics& g)
                                    juce::Colours::black.withAlpha (0.38f), 0.0f, (float) designHeight * 1.05f, true);
     vignette.addColour (0.55, juce::Colours::transparentBlack);
     g.setGradientFill (vignette);
-    g.fillRect (getLocalBounds().withTrimmedTop (titleBar.getBottom()));
+    g.fillRect (getLocalBounds().withTrimmedTop (titleBar.getBottom()).withBottom (footerBar.getY()));
 }
 
 //------------------------------------------------------------------------------

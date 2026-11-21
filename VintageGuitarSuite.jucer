@@ -25,6 +25,8 @@
         <FILE id="f1f868c" name="NamAmp.cpp" compile="1" resource="0" file="Source/Modules/NamAmp.cpp"/>
         <FILE id="fTunH01" name="Tuner.h" compile="0" resource="0" file="Source/Modules/Tuner.h"/>
         <FILE id="fTunC01" name="Tuner.cpp" compile="1" resource="0" file="Source/Modules/Tuner.cpp"/>
+        <FILE id="fRecH01" name="Recorder.h" compile="0" resource="0" file="Source/Modules/Recorder.h"/>
+        <FILE id="fRecC01" name="Recorder.cpp" compile="1" resource="0" file="Source/Modules/Recorder.cpp"/>
         <FILE id="fTnStH" name="ToneStack.h" compile="0" resource="0" file="Source/Modules/ToneStack.h"/>
         <FILE id="fTnStC" name="ToneStack.cpp" compile="1" resource="0" file="Source/Modules/ToneStack.cpp"/>
         <FILE id="fNGateH" name="NoiseGate.h" compile="0" resource="0" file="Source/Modules/NoiseGate.h"/>

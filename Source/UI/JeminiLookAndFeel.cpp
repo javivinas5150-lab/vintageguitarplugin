@@ -319,6 +319,9 @@ void JeminiLookAndFeel::drawModeSwitch (juce::Graphics& g, juce::ToggleButton& b
 
 void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool highlighted, bool down)
 {
+    if (button.getProperties()["style"].toString() == "recButton")
+        return;   // the red dome says it all
+
     if (button.getProperties()["style"].toString() == "presetButton")
     {
         g.setColour (cream.withAlpha (highlighted ? 1.0f : 0.85f));
@@ -465,6 +468,35 @@ void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
         }
         g.setColour (on ? cream.withAlpha (0.6f) : silver.withAlpha (highlighted ? 0.5f : 0.25f));
         g.drawRoundedRectangle (r, 4.0f, 1.0f);
+        return;
+    }
+
+    if (style == "recButton")
+    {
+        const auto r = button.getLocalBounds().toFloat().reduced (1.0f);
+        const auto c = r.getCentre();
+        const float rad = juce::jmin (r.getWidth(), r.getHeight()) * 0.5f;
+        const bool rec = button.getToggleState();
+        const bool blinkOn = ! rec || (juce::Time::getMillisecondCounter() / 500) % 2 == 0;
+        const auto red = juce::Colour (0xffff3020);
+
+        realism::softShadowEllipse (g, c, rad - 1.0f, rad * 0.35f, { 0.8f, 2.0f }, 0.55f);
+        realism::spunMetal (g, c, rad, juce::Colour (0xffb8bcc2), 60.0f);                    // chrome bezel
+        g.setColour (juce::Colours::black.withAlpha (0.6f));
+        g.drawEllipse (juce::Rectangle<float> (rad * 2.0f, rad * 2.0f).withCentre (c), 0.8f);
+
+        const float domeR = rad * 0.68f;
+        if (rec && blinkOn)
+        {
+            juce::ColourGradient spill (red.withAlpha (0.6f), c, red.withAlpha (0.0f), c.translated (rad * 1.8f, 0.0f), true);
+            g.setGradientFill (spill);
+            g.fillEllipse (juce::Rectangle<float> (rad * 3.6f, rad * 3.6f).withCentre (c));
+        }
+        juce::ColourGradient dome (rec && blinkOn ? red.brighter (0.8f) : (highlighted ? red.darker (0.8f) : red.darker (1.4f)), c.translated (-domeR * 0.3f, -domeR * 0.3f),
+                                   rec && blinkOn ? red.darker (0.2f) : red.darker (3.0f), c.translated (domeR, domeR), true);
+        g.setGradientFill (dome);
+        g.fillEllipse (juce::Rectangle<float> (domeR * 2.0f, domeR * 2.0f).withCentre (c.translated (0.0f, down ? 0.8f : 0.0f)));
+        realism::specular (g, c, domeR, 0.55f);
         return;
     }
 

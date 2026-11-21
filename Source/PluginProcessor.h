@@ -12,6 +12,7 @@
 #include "Modules/IRVerb.h"
 #include "Modules/Tuner.h"
 #include "PresetManager.h"
+#include "Modules/Recorder.h"
 
 //==============================================================================
 // Jemini Guitar Rig
@@ -99,6 +100,10 @@ public:
     }
     // Input peak since the last call (after the INPUT knob), for the signal LED
     float takeInputPeak() { return inputPeak.exchange (0.0f); }
+
+    // Recorder (standalone app): records the processed output to WAV
+    Recorder& getRecorder() { return recorder; }
+    bool isStandalone() const { return wrapperType == juce::AudioProcessor::wrapperType_Standalone; }
 
     // Presets (message thread)
     PresetManager& getPresets() { return *presets; }
@@ -203,6 +208,7 @@ private:
     void restoreFiles (bool onlyIfChanged);   // reload NAM / IR files named in the state
 
     std::unique_ptr<PresetManager> presets;   // created at the end of the constructor
+    Recorder recorder;
 
     NoiseGate noiseGate;
     Vibe vibe;

@@ -93,3 +93,10 @@ The bank lives in `%APPDATA%\Jemini Guitar Rig\Presets.xml`, shared by every
 Cubase project and the standalone app. A preset stores the whole rig including
 the NAM model / IR files; the six factory presets keep whatever models and IRs
 you have loaded.
+
+## Recorder (standalone app)
+
+The footer of the standalone app has a **REC** button: it records exactly what
+you hear (the fully processed stereo output) to a 24-bit WAV file in
+`Documents\Jemini Guitar Rig\Recordings` (named with date and time).
+**OPEN FOLDER** shows that folder. In a DAW, record the track as usual.
