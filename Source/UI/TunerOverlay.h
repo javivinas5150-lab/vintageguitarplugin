@@ -46,6 +46,7 @@ private:
         juce::Rectangle<int> meterArea, noteArea, lampsArea, refArea;
         juce::TextButton refDown { "-" }, refUp { "+" }, closeButton { "CLOSE" };
         juce::Image staticLayer;
+        float staticScale = 2.0f;
 
         // needle ballistics (in cents, -50..+50; rests at -50)
         float needlePos = -50.0f, needleVel = 0.0f, targetCents = -50.0f;

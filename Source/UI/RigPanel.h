@@ -84,6 +84,8 @@ private:
     int skinIndex = 0, texturesSkin = -1;
     float backdropScale = 0.0f;        // device pixels per design pixel the backdrop was rendered at
     float currentRenderScale() const;
+    float grilleScale = 0.0f;
+    void buildGrilles (float scale);
     void buildBackdrop();   // background + soft shadows, cached once after layout
     void drawMountedShadows (juce::Graphics&, juce::Rectangle<int> within) const;
 

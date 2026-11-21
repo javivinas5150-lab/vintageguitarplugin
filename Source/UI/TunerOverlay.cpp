@@ -35,7 +35,7 @@ void TunerOverlay::resized()
 
     // Dimmed backdrop + the unit's soft shadow, rendered once
     backdrop = juce::Image (juce::Image::ARGB, juce::jmax (1, getWidth()), juce::jmax (1, getHeight()), true);
-    juce::Graphics g (backdrop);
+    juce::Graphics g (backdrop);   // soft shadows and dimming only: resolution doesn't matter here
     g.fillAll (juce::Colours::black.withAlpha (0.55f));
     const auto c = unit.getBounds().getCentre().toFloat();
     juce::ColourGradient vignette (juce::Colours::transparentBlack, c.x, c.y,
@@ -225,7 +225,12 @@ void TunerOverlay::Unit::drawMeterFace (juce::Graphics& g, juce::Rectangle<float
 
 void TunerOverlay::Unit::buildStaticLayer()
 {
-    constexpr float k = 2.0f;   // render at 2x so it stays crisp when the window is enlarged
+    // Render at the real device scale (at least 2x) so it stays crisp on large windows / HiDPI screens
+    float display = 1.0f;
+    if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
+        display = (float) d->scale;
+    const float k = juce::jlimit (2.0f, 4.0f, std::ceil (juce::Component::getApproximateScaleFactorForComponent (this) * display * 4.0f) / 4.0f);
+    staticScale = k;
     staticLayer = juce::Image (juce::Image::RGB, (int) (unitW * k), (int) (unitH * k), true);
     juce::Graphics g (staticLayer);
     g.addTransform (juce::AffineTransform::scale (k));
@@ -256,8 +261,8 @@ void TunerOverlay::Unit::buildStaticLayer()
 
     // Brushed black face
     const auto face = all.reduced (34.0f, 0.0f);
-    const auto brushed = realism::makeBrushed (512, 256, juce::Colour (0xff17181b), 5.0f, 61);
-    g.setFillType (juce::FillType (brushed, juce::AffineTransform::translation (face.getX(), 0.0f)));
+    const auto brushed = realism::makeBrushed (512, 256, juce::Colour (0xff17181b), 5.0f, 61, 2);
+    g.setFillType (juce::FillType (brushed, juce::AffineTransform::scale (0.5f).translated (face.getX(), 0.0f)));
     g.fillRect (face);
     juce::ColourGradient light (juce::Colours::white.withAlpha (0.07f), face.getX(), face.getY(),
                                 juce::Colours::black.withAlpha (0.35f), face.getX(), face.getBottom(), false);
@@ -346,7 +351,8 @@ void TunerOverlay::Unit::paint (juce::Graphics& g)
     if (! staticLayer.isValid())
         buildStaticLayer();
 
-    g.drawImageTransformed (staticLayer, juce::AffineTransform::scale (0.5f));
+    g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+    g.drawImageTransformed (staticLayer, juce::AffineTransform::scale (1.0f / staticScale));
 
     const bool inTune = hasSignal && std::abs (shown.cents) <= 2.0f;
     const auto win = meterArea.toFloat();

@@ -868,8 +868,7 @@ void RigPanel::buildTextures()
     const auto& sk = skin();
     tolex       = sk.covering == Skin::Covering::tweed ? realism::makeTweed (256, sk.covering1, sk.covering2, 7, texRes)
                                                        : realism::makeTolex (256, sk.covering1, 7, 1.9f, true, texRes);
-    ampGrille   = makeWheatGrille (896 * 2, 112 * 2, 2.0f, 11, sk);
-    cabGrille   = makeWheatGrille (500 * 2, 158 * 2, 2.0f, 13, sk);
+    buildGrilles (2.0f);
     brushedRack = realism::makeBrushed (512, 256, sk.rackFace, 5.0f, 21, texRes);
     brushedDark = realism::makeBrushed (512, 256, sk.subPanel, 4.0f, 23, texRes);
     brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25, texRes);
@@ -877,6 +876,16 @@ void RigPanel::buildTextures()
     flakes      = realism::makeSpeckle (320, 240, 0.18f, 0.16f, 27, texRes);
     paper       = realism::makeSpeckle (256, 128, 0.35f, 0.10f, 29, texRes);
     wall        = realism::makeTolex (256, sk.wall, 31, 1.0f, false, texRes);
+}
+
+// Grille cloth is the finest detail on screen: render it at the device scale (min 2x)
+void RigPanel::buildGrilles (float scale)
+{
+    grilleScale = juce::jmax (2.0f, scale);
+    const auto& sk = skin();
+    const float k = grilleScale;
+    ampGrille = makeWheatGrille (juce::roundToInt (896 * k), juce::roundToInt (112 * k), k, 11, sk);
+    cabGrille = makeWheatGrille (juce::roundToInt (500 * k), juce::roundToInt (158 * k), k, 13, sk);
 }
 
 const Skin& RigPanel::skin() const { return skins::get (skinIndex); }
@@ -1201,6 +1210,8 @@ void RigPanel::buildBackdrop()
 {
     backdropScale = currentRenderScale();
     const float bs = backdropScale;
+    if (std::abs (juce::jmax (2.0f, bs) - grilleScale) > 0.01f)
+        buildGrilles (bs);
     backdrop = juce::Image (juce::Image::RGB, juce::roundToInt (designWidth * bs), juce::roundToInt (designHeight * bs), true);
     juce::Graphics g (backdrop);
     g.addTransform (juce::AffineTransform::scale (bs));
