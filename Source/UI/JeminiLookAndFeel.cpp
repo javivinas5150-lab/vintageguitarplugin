@@ -134,6 +134,43 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
                     juce::Justification::centred, false);
     }
 
+    if (ampKnobAluminium)
+    {
+        // Black knurled base, then a large machined aluminium cap
+        const float baseR = r * 0.68f, alCapR = r * 0.54f;
+        realism::softShadowEllipse (g, c, baseR, baseR * 0.4f, { r * 0.07f, r * 0.18f }, 0.55f);
+
+        juce::ColourGradient base (juce::Colour (0xff3a3a3e), c.translated (-baseR * 0.5f, -baseR * 0.6f),
+                                   juce::Colour (0xff050506), c.translated (baseR * 0.6f, baseR * 0.7f), true);
+        g.setGradientFill (base);
+        g.fillEllipse (juce::Rectangle<float> (baseR * 2.0f, baseR * 2.0f).withCentre (c));
+        g.setColour (juce::Colours::white.withAlpha (0.10f));
+        for (int i = 0; i < 48; ++i)
+        {
+            const float a = angle + (float) i / 48.0f * juce::MathConstants<float>::twoPi;
+            g.drawLine ({ polar (c, alCapR * 1.02f, a), polar (c, baseR * 0.98f, a) }, 0.8f);
+        }
+        g.setColour (juce::Colours::white.withAlpha (0.25f));
+        g.drawEllipse (juce::Rectangle<float> (baseR * 1.96f, baseR * 1.96f).withCentre (c.translated (0.0f, -0.5f)), 0.8f);
+
+        realism::softShadowEllipse (g, c, alCapR, alCapR * 0.18f, { alCapR * 0.04f, alCapR * 0.12f }, 0.5f);
+        realism::spunMetal (g, c, alCapR, juce::Colour (0xffc9cdd2), 75.0f);
+        juce::ColourGradient dome (juce::Colours::white.withAlpha (0.35f), c.translated (-alCapR * 0.4f, -alCapR * 0.5f),
+                                   juce::Colours::black.withAlpha (0.25f), c.translated (alCapR * 0.6f, alCapR * 0.8f), true);
+        g.setGradientFill (dome);
+        g.fillEllipse (juce::Rectangle<float> (alCapR * 2.0f, alCapR * 2.0f).withCentre (c));
+        g.setColour (juce::Colours::black.withAlpha (0.6f));
+        g.drawEllipse (juce::Rectangle<float> (alCapR * 2.0f, alCapR * 2.0f).withCentre (c), 0.9f);
+        realism::specular (g, c, alCapR, 0.55f);
+
+        // engraved pointer line across the cap
+        g.setColour (juce::Colour (0xff141416).withAlpha (enabled ? 0.95f : 0.5f));
+        g.drawLine ({ polar (c, alCapR * 0.15f, angle), polar (c, alCapR * 0.96f, angle) }, juce::jmax (1.8f, r * 0.065f));
+        g.setColour (juce::Colours::white.withAlpha (0.35f));
+        g.drawLine ({ polar (c.translated (0.6f, 0.6f), alCapR * 0.15f, angle), polar (c.translated (0.6f, 0.6f), alCapR * 0.96f, angle) }, 0.6f);
+        return;
+    }
+
     const float skirtR = r * 0.68f;
     const float capR   = r * 0.44f;
 

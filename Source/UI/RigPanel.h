@@ -138,7 +138,7 @@ private:
     std::unique_ptr<ButtonAttachment> cabBypassAttachment;
     juce::Label cabNameLabel;
     Knob lowCut, highCut, cabLevelKnob;
-    juce::Rectangle<int> cabLedArea, rackPowerLedArea, inputLedArea;
+    juce::Rectangle<int> cabLedArea, rackPowerLedArea, inputLedArea, modelWindowArea;
     std::array<juce::TextButton, 2> inputButtons;
     int shownInput = -1;
     float inputLevel = 0.0f;

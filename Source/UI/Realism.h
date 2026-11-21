@@ -78,12 +78,13 @@ namespace realism
 
     //--------------------------------------------------------------------------
     // Pebbled leather tolex: blurred noise used as a height map, then embossed
-    inline juce::Image makeTolex (int size, juce::Colour base, int seed)
+    inline juce::Image makeTolex (int size, juce::Colour base, int seed, float strength = 1.0f, bool coarse = false)
     {
         juce::Random rnd (seed);
         Field grain (size, size), large (size, size);
         grain.randomise (rnd);
         grain.blurH (1); grain.blurV (1); grain.blurH (1); grain.blurV (1);
+        if (coarse) { grain.blurH (2); grain.blurV (2); }   // bigger "levant" pebbles
         grain.normalise();
         large.randomise (rnd);
         large.blurH (6); large.blurV (6);
@@ -96,7 +97,7 @@ namespace realism
             for (int x = 0; x < size; ++x)
             {
                 const float emboss = grain.at (x - 1, y - 1) - grain.at (x + 1, y + 1);   // top-left light
-                const float d = emboss * 9.0f + large.at (x, y) * 2.5f + (rnd.nextFloat() - 0.5f) * 4.0f;
+                const float d = (emboss * 9.0f + large.at (x, y) * 2.5f) * strength + (rnd.nextFloat() - 0.5f) * 4.0f;
                 bd.setPixelColour (x, y, shade (base, d));
             }
 
