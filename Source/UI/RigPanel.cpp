@@ -42,6 +42,95 @@ namespace
         return img;
     }
 
+    // Vintage "wheat" basket-weave grille cloth: thick horizontal tan threads,
+    // thinner vertical threads going over/under them, dark backing between.
+    // 'scale' = texture pixels per design pixel (render above 1 for crispness).
+    juce::Image makeWheatGrille (int w, int h, float scale, int seed)
+    {
+        juce::Random rnd (seed);
+        const float pitchY = 6.2f * scale, pitchX = 12.8f * scale;
+        const float thickH = 1.75f * scale, thickV = 1.35f * scale;
+
+        // Thread positions with slight irregularity, and per-thread brightness
+        std::vector<float> hy, hb, vx, vb;
+        for (float y = -pitchY; y < (float) h + pitchY * 2.0f; y += pitchY)
+        {
+            hy.push_back (y + (rnd.nextFloat() - 0.5f) * 0.25f * pitchY);
+            hb.push_back (0.82f + rnd.nextFloat() * 0.3f);
+        }
+        for (float x = -pitchX; x < (float) w + pitchX * 2.0f; x += pitchX)
+        {
+            vx.push_back (x + (rnd.nextFloat() - 0.5f) * 0.18f * pitchX);
+            vb.push_back (0.75f + rnd.nextFloat() * 0.3f);
+        }
+
+        // Slow brightness drift along each horizontal thread (yarn thickness)
+        realism::Field drift (w, (int) hy.size());
+        drift.randomise (rnd);
+        drift.blurH (juce::roundToInt (6.0f * scale));
+        drift.normalise();
+
+        const juce::Colour light (0xfff2dcaa), mid (0xffa88a5a), shadowCol (0xff160e08), backing (0xff6e5438);
+
+        juce::Image img (juce::Image::RGB, w, h, false);
+        juce::Image::BitmapData bd (img, juce::Image::BitmapData::writeOnly);
+
+        auto mix = [] (juce::Colour a, juce::Colour b, float t) { return a.interpolatedWith (b, juce::jlimit (0.0f, 1.0f, t)); };
+
+        for (int y = 0; y < h; ++y)
+        {
+            // nearest horizontal thread
+            int k = juce::jlimit (0, (int) hy.size() - 2, (int) (((float) y + pitchY) / pitchY));
+            while (k > 0 && hy[(size_t) k] > (float) y) --k;
+            const int kNear = (std::abs ((float) y - hy[(size_t) k]) < std::abs ((float) y - hy[(size_t) k + 1])) ? k : k + 1;
+            const float dyH = (float) y - hy[(size_t) kNear];
+            const float tGap = juce::jlimit (0.0f, 1.0f, ((float) y - hy[(size_t) k]) / (hy[(size_t) k + 1] - hy[(size_t) k]));
+
+            for (int x = 0; x < w; ++x)
+            {
+                int j = juce::jlimit (0, (int) vx.size() - 2, (int) (((float) x + pitchX) / pitchX));
+                while (j > 0 && vx[(size_t) j] > (float) x) --j;
+                const int jNear = (std::abs ((float) x - vx[(size_t) j]) < std::abs ((float) x - vx[(size_t) j + 1])) ? j : j + 1;
+                const float dxV = (float) x - vx[(size_t) jNear];
+
+                // Gap: dark backing, deepest just under each horizontal thread
+                const float shadowAmt = std::exp (-std::pow ((tGap - 0.5f) / 0.17f, 2.0f));
+                auto col = mix (backing, shadowCol, 0.15f + 0.8f * shadowAmt);
+
+                // Horizontal thread: round yarn, lit from above
+                const float ph = std::exp (-std::pow (dyH / thickH, 2.0f));
+                const float litH = juce::jlimit (0.0f, 1.0f, 0.55f - 0.45f * dyH / thickH);
+                const float bh = hb[(size_t) kNear] + drift.at (x, kNear) * 0.08f + (rnd.nextFloat() - 0.5f) * 0.2f;
+                const auto hCol = mix (mid, light, litH).withMultipliedBrightness (bh);
+
+                // Vertical thread: thinner, slightly darker, lit from the left
+                const float pv = std::exp (-std::pow (dxV / thickV, 2.0f));
+                const float litV = juce::jlimit (0.0f, 1.0f, 0.5f - 0.4f * dxV / thickV);
+                const float bv = vb[(size_t) jNear] + (rnd.nextFloat() - 0.5f) * 0.12f;
+                const auto vCol = mix (mid, light, litV).withMultipliedBrightness (bv * 1.05f);
+
+                // Over/under: alternate which thread is on top at each crossing
+                const bool verticalOnTop = ((kNear + jNear) & 1) != 0;
+                if (verticalOnTop)
+                {
+                    col = mix (col, hCol, ph * (1.0f - 0.7f * pv));
+                    col = mix (col, vCol, pv);
+                }
+                else
+                {
+                    col = mix (col, vCol, pv * 0.9f);
+                    col = mix (col, hCol, ph);
+                    if (ph > 0.3f && pv > 0.3f)   // vertical dives under: small shadow on its sides
+                        col = col.darker (0.15f * pv);
+                }
+
+                bd.setPixelColour (x, y, col);
+            }
+        }
+
+        return img;
+    }
+
     // Woven grille cloth (tan / silver threads)
     juce::Image makeGrille (int w, int h, juce::Colour light, juce::Colour dark, int seed)
     {
@@ -426,8 +515,8 @@ void RigPanel::timerCallback()
 void RigPanel::buildTextures()
 {
     tolex       = realism::makeTolex (192, juce::Colour (0xff1b1b1d), 7);
-    ampGrille   = makeGrille (900, 140, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 11);
-    cabGrille   = makeGrille (560, 170, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 13);
+    ampGrille   = makeWheatGrille (896 * 2, 112 * 2, 2.0f, 11);
+    cabGrille   = makeWheatGrille (500 * 2, 158 * 2, 2.0f, 13);
     brushedRack = realism::makeBrushed (512, 256, juce::Colour (0xff1e2333), 5.0f, 21);
     brushedDark = realism::makeBrushed (512, 256, juce::Colour (0xff1d1d21), 4.0f, 23);
     brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25);
