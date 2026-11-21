@@ -23,6 +23,7 @@ public:
     ~RigPanel() override = default;
 
     static constexpr int designWidth = 1280, designHeight = 762;   // 720 rig + 42 footer
+    static constexpr int texRes = 2;   // texture texels per design pixel
 
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
@@ -81,6 +82,8 @@ public:
 private:
     const struct Skin& skin() const;
     int skinIndex = 0, texturesSkin = -1;
+    float backdropScale = 0.0f;        // device pixels per design pixel the backdrop was rendered at
+    float currentRenderScale() const;
     void buildBackdrop();   // background + soft shadows, cached once after layout
     void drawMountedShadows (juce::Graphics&, juce::Rectangle<int> within) const;
 

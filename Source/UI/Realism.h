@@ -78,25 +78,28 @@ namespace realism
 
     //--------------------------------------------------------------------------
     // Pebbled leather tolex: blurred noise used as a height map, then embossed
-    inline juce::Image makeTolex (int size, juce::Colour base, int seed, float strength = 1.0f, bool coarse = false)
+    // 'res' = texels per design pixel (2 = crisp on HiDPI / scaled-up windows). The look
+    // (pebble size, streak length) is the same at any res, only finer detail is added.
+    inline juce::Image makeTolex (int size, juce::Colour base, int seed, float strength = 1.0f, bool coarse = false, int res = 1)
     {
         juce::Random rnd (seed);
-        Field grain (size, size), large (size, size);
+        const int n = size * res;
+        Field grain (n, n), large (n, n);
         grain.randomise (rnd);
-        grain.blurH (1); grain.blurV (1); grain.blurH (1); grain.blurV (1);
-        if (coarse) { grain.blurH (2); grain.blurV (2); }   // bigger "levant" pebbles
+        grain.blurH (res); grain.blurV (res); grain.blurH (res); grain.blurV (res);
+        if (coarse) { grain.blurH (2 * res); grain.blurV (2 * res); }   // bigger "levant" pebbles
         grain.normalise();
         large.randomise (rnd);
-        large.blurH (6); large.blurV (6);
+        large.blurH (6 * res); large.blurV (6 * res);
         large.normalise();
 
-        juce::Image img (juce::Image::RGB, size, size, false);
+        juce::Image img (juce::Image::RGB, n, n, false);
         juce::Image::BitmapData bd (img, juce::Image::BitmapData::writeOnly);
 
-        for (int y = 0; y < size; ++y)
-            for (int x = 0; x < size; ++x)
+        for (int y = 0; y < n; ++y)
+            for (int x = 0; x < n; ++x)
             {
-                const float emboss = grain.at (x - 1, y - 1) - grain.at (x + 1, y + 1);   // top-left light
+                const float emboss = grain.at (x - res, y - res) - grain.at (x + res, y + res);   // top-left light
                 const float d = (emboss * 9.0f + large.at (x, y) * 2.5f) * strength + (rnd.nextFloat() - 0.5f) * 4.0f;
                 bd.setPixelColour (x, y, shade (base, d));
             }
@@ -107,8 +110,10 @@ namespace realism
     //--------------------------------------------------------------------------
     // Lacquered tweed: diagonal twill of light and dark yarns, slub texture and
     // an amber lacquer tint. Tiles seamlessly when size is a multiple of 8.
-    inline juce::Image makeTweed (int size, juce::Colour lightYarn, juce::Colour darkYarn, int seed)
+    inline juce::Image makeTweed (int size, juce::Colour lightYarn, juce::Colour darkYarn, int seed, int res = 1)
     {
+        if (res > 1)   // the twill is pixel-exact: build at 1x and enlarge without smoothing
+            return makeTweed (size, lightYarn, darkYarn, seed).rescaled (size * res, size * res, juce::Graphics::lowResamplingQuality);
         juce::Random rnd (seed);
         Field slub (size, size);
         slub.randomise (rnd);
@@ -142,12 +147,13 @@ namespace realism
 
     //--------------------------------------------------------------------------
     // Brushed metal: long horizontal streaks + fine grain
-    inline juce::Image makeBrushed (int w, int h, juce::Colour base, float amount, int seed)
+    inline juce::Image makeBrushed (int w, int h, juce::Colour base, float amount, int seed, int res = 1)
     {
         juce::Random rnd (seed);
+        w *= res; h *= res;
         Field streak (w, h);
         streak.randomise (rnd);
-        streak.blurH (28);
+        streak.blurH (28 * res);
         streak.normalise();
 
         juce::Image img (juce::Image::RGB, w, h, false);
@@ -168,8 +174,9 @@ namespace realism
 
     //--------------------------------------------------------------------------
     // Transparent fleck layer (powder coat / metallic paint / paper fibres)
-    inline juce::Image makeSpeckle (int w, int h, float density, float maxAlpha, int seed)
+    inline juce::Image makeSpeckle (int w, int h, float density, float maxAlpha, int seed, int res = 1)
     {
+        w *= res; h *= res;
         juce::Image img (juce::Image::ARGB, w, h, true);
         juce::Random rnd (seed);
         juce::Image::BitmapData bd (img, juce::Image::BitmapData::readWrite);

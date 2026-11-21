@@ -866,17 +866,17 @@ void RigPanel::buildTextures()
 {
     texturesSkin = skinIndex;
     const auto& sk = skin();
-    tolex       = sk.covering == Skin::Covering::tweed ? realism::makeTweed (256, sk.covering1, sk.covering2, 7)
-                                                       : realism::makeTolex (256, sk.covering1, 7, 1.9f, true);
+    tolex       = sk.covering == Skin::Covering::tweed ? realism::makeTweed (256, sk.covering1, sk.covering2, 7, texRes)
+                                                       : realism::makeTolex (256, sk.covering1, 7, 1.9f, true, texRes);
     ampGrille   = makeWheatGrille (896 * 2, 112 * 2, 2.0f, 11, sk);
     cabGrille   = makeWheatGrille (500 * 2, 158 * 2, 2.0f, 13, sk);
-    brushedRack = realism::makeBrushed (512, 256, sk.rackFace, 5.0f, 21);
-    brushedDark = realism::makeBrushed (512, 256, sk.subPanel, 4.0f, 23);
-    brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25);
-    brushedPanel = realism::makeBrushed (512, 128, sk.panelTop.interpolatedWith (sk.panelBottom, 0.4f), 7.0f, 33);
-    flakes      = realism::makeSpeckle (320, 240, 0.18f, 0.16f, 27);
-    paper       = realism::makeSpeckle (256, 128, 0.35f, 0.10f, 29);
-    wall        = realism::makeTolex (256, sk.wall, 31);
+    brushedRack = realism::makeBrushed (512, 256, sk.rackFace, 5.0f, 21, texRes);
+    brushedDark = realism::makeBrushed (512, 256, sk.subPanel, 4.0f, 23, texRes);
+    brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25, texRes);
+    brushedPanel = realism::makeBrushed (512, 128, sk.panelTop.interpolatedWith (sk.panelBottom, 0.4f), 7.0f, 33, texRes);
+    flakes      = realism::makeSpeckle (320, 240, 0.18f, 0.16f, 27, texRes);
+    paper       = realism::makeSpeckle (256, 128, 0.35f, 0.10f, 29, texRes);
+    wall        = realism::makeTolex (256, sk.wall, 31, 1.0f, false, texRes);
 }
 
 const Skin& RigPanel::skin() const { return skins::get (skinIndex); }
@@ -1130,7 +1130,7 @@ namespace
     void fillTextured (juce::Graphics& g, juce::Rectangle<float> r, float corner, const juce::Image& tex,
                        float opacity = 1.0f)
     {
-        juce::FillType fill (tex, juce::AffineTransform::translation (r.getX(), r.getY()));
+        juce::FillType fill (tex, juce::AffineTransform::scale (1.0f / (float) RigPanel::texRes).translated (r.getX(), r.getY()));
         fill.setOpacity (opacity);
         g.setFillType (fill);
         g.fillRoundedRectangle (r, corner);
@@ -1188,13 +1188,25 @@ namespace
 
 // Background wall, title bar and the soft shadows every unit casts on it.
 // Drawn once at design size; paint() just blits it.
+float RigPanel::currentRenderScale() const
+{
+    float display = 1.0f;
+    if (auto* d = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
+        display = (float) d->scale;
+    const float s = juce::Component::getApproximateScaleFactorForComponent (this) * display;
+    return juce::jlimit (1.0f, 4.0f, std::ceil (s * 4.0f) / 4.0f);   // quantised so tiny resizes don't rebuild
+}
+
 void RigPanel::buildBackdrop()
 {
-    backdrop = juce::Image (juce::Image::RGB, designWidth, designHeight, true);
+    backdropScale = currentRenderScale();
+    const float bs = backdropScale;
+    backdrop = juce::Image (juce::Image::RGB, juce::roundToInt (designWidth * bs), juce::roundToInt (designHeight * bs), true);
     juce::Graphics g (backdrop);
+    g.addTransform (juce::AffineTransform::scale (bs));
 
     // Dark acoustic wall with a warm spotlight from above
-    g.setFillType (juce::FillType (wall, juce::AffineTransform()));
+    g.setFillType (juce::FillType (wall, juce::AffineTransform::scale (1.0f / (float) texRes)));
     g.fillAll();
     const auto& sk = skin();
     juce::ColourGradient spot (sk.spotlight, (float) designWidth * 0.45f, 40.0f,
@@ -1229,7 +1241,7 @@ void RigPanel::buildBackdrop()
         // Engraved brushed-aluminium nameplate, screwed to the wood
         const auto plate = juce::Rectangle<float> (380.0f, 34.0f).withCentre (bar.getCentre());
         realism::dropShadow (g, plate, 4.0f, 6, { 0, 3 }, 0.8f);
-        g.setFillType (juce::FillType (brushedAlu, juce::AffineTransform::translation (plate.getX(), plate.getY())));
+        g.setFillType (juce::FillType (brushedAlu, juce::AffineTransform::scale (1.0f / (float) texRes).translated (plate.getX(), plate.getY())));
         g.fillRoundedRectangle (plate, 4.0f);
         juce::ColourGradient sheenGrad (juce::Colours::white.withAlpha (0.28f), plate.getX(), plate.getY(),
                                         juce::Colours::black.withAlpha (0.18f), plate.getX(), plate.getBottom(), false);
@@ -1314,8 +1326,9 @@ void RigPanel::buildBackdrop()
     castShadow (bottomArea, 8.0f);
 
     // Parts sitting on top of the units: label, badge, control sub-panels
-    mountedShadows = juce::Image (juce::Image::ARGB, designWidth, designHeight, true);
+    mountedShadows = juce::Image (juce::Image::ARGB, backdrop.getWidth(), backdrop.getHeight(), true);
     juce::Graphics ms (mountedShadows);
+    ms.addTransform (juce::AffineTransform::scale (bs));
     realism::dropShadow (ms, modelTagArea.toFloat(), 6.0f, 6, { 2, 4 }, 0.7f);
     realism::dropShadow (ms, juce::Rectangle<float> (170.0f, 28.0f).withCentre ({ cabGrilleArea.toFloat().getCentreX(), (float) cabGrilleArea.getY() + 22.0f }),
                          5.0f, 5, { 1, 3 }, 0.7f);
@@ -1328,12 +1341,15 @@ void RigPanel::drawMountedShadows (juce::Graphics& g, juce::Rectangle<int> withi
 {
     juce::Graphics::ScopedSaveState s (g);
     g.reduceClipRegion (within);
-    g.drawImageAt (mountedShadows, 0, 0);
+    g.drawImage (mountedShadows, juce::Rectangle<float> ((float) designWidth, (float) designHeight));
 }
 
 void RigPanel::paint (juce::Graphics& g)
 {
-    g.drawImageAt (backdrop, 0, 0);
+    if (std::abs (currentRenderScale() - backdropScale) > 0.01f)   // window resized / moved to another screen
+        buildBackdrop();
+    g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
+    g.drawImage (backdrop, juce::Rectangle<float> ((float) designWidth, (float) designHeight));
 
     const auto& sk = skin();
     g.setColour (sk.titleText.withAlpha (0.7f));
