@@ -34,6 +34,7 @@ public:
 
     // Skin-dependent colours (set by RigPanel::applySkin)
     juce::Colour ampKnobCap { 0xff0a0a0b }, ampKnobNumbers { 0xffe9dfc6 }, rackAccent { 0xff3fb6ff };
+    bool ampKnobChicken = false;     // white chicken-head pointer knobs
     bool ampKnobAluminium = false;   // big spun-aluminium caps on a black knurled base   // Days One - amp/brand logos (drawn slanted)
 
     // Draws text in the logo font with a forward slant (60s "speed" logo style)

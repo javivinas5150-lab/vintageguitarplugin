@@ -889,6 +889,7 @@ void RigPanel::applySkin (int index)
         lf->ampKnobNumbers = sk.knobNumbers;
         lf->rackAccent     = sk.rackAccent;
         lf->ampKnobAluminium = sk.aluminiumKnobs;
+        lf->ampKnobChicken   = sk.chickenKnobs;
     }
 
     for (auto& k : ampKnobs)

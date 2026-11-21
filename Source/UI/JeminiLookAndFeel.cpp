@@ -134,6 +134,65 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
                     juce::Justification::centred, false);
     }
 
+    if (ampKnobChicken)
+    {
+        // Classic white "chicken head": round bulb at the back, long tapered beak pointing at the value
+        const float u = r;
+        juce::Path head;
+        head.startNewSubPath (-0.06f * u, -0.78f * u);
+        head.cubicTo (-0.09f * u, -0.50f * u, -0.16f * u, -0.30f * u, -0.30f * u, -0.16f * u);   // concave beak flank
+        head.addArc (-0.36f * u, -0.34f * u, 0.72f * u, 0.72f * u,
+                     -0.80f, -juce::MathConstants<float>::twoPi + 0.80f, false);                // full round bulb
+        head.cubicTo (0.16f * u, -0.30f * u, 0.09f * u, -0.50f * u, 0.06f * u, -0.78f * u);
+        head.quadraticTo (0.0f, -0.83f * u, -0.06f * u, -0.78f * u);
+        head.closeSubPath();
+        head.applyTransform (juce::AffineTransform::rotation (angle).translated (c));
+
+        // Shadow cast down-right on the panel
+        juce::DropShadow (juce::Colours::black.withAlpha (0.75f), (int) (r * 0.16f),
+                          { (int) std::round (r * 0.05f), (int) std::round (r * 0.13f) }).drawForPath (g, head);
+
+        // Body: warm white plastic, lit from the top-left (lighting stays fixed while the knob turns)
+        const auto bounds = juce::Rectangle<float> (r * 1.7f, r * 1.7f).withCentre (c);
+        juce::ColourGradient body (juce::Colour (0xfffbf9f2), bounds.getTopLeft(),
+                                   juce::Colour (0xffa9a498), bounds.getBottomRight(), false);
+        body.addColour (0.45, juce::Colour (0xffe9e5da));
+        g.setGradientFill (body);
+        g.fillPath (head);
+
+        // Raised top face (inset copy, brighter) for a moulded bevel
+        juce::Path top (head);
+        top.applyTransform (juce::AffineTransform::translation (-c.x, -c.y).scaled (0.80f).translated (c.translated (-r * 0.012f, -r * 0.02f)));
+        juce::ColourGradient face (juce::Colour (0xffffffff), bounds.getTopLeft(),
+                                   juce::Colour (0xffd8d3c6), bounds.getBottomRight(), false);
+        g.setGradientFill (face);
+        g.fillPath (top);
+        g.setColour (juce::Colours::black.withAlpha (0.10f));
+        g.strokePath (top, juce::PathStrokeType (0.8f));
+
+        // Gloss highlight on the bulb
+        juce::ColourGradient gloss (juce::Colours::white.withAlpha (0.85f), c.translated (-r * 0.12f, -r * 0.14f),
+                                    juce::Colours::white.withAlpha (0.0f), c.translated (r * 0.12f, r * 0.12f), true);
+        g.setGradientFill (gloss);
+        g.fillEllipse (juce::Rectangle<float> (r * 0.30f, r * 0.22f).withCentre (c.translated (-r * 0.08f, -r * 0.08f)));
+
+        // Outline
+        g.setColour (juce::Colour (0xff5a554c).withAlpha (0.9f));
+        g.strokePath (head, juce::PathStrokeType (1.0f));
+
+        // Engraved black indicator line along the beak
+        g.setColour (juce::Colour (0xff111111).withAlpha (enabled ? 0.95f : 0.5f));
+        g.drawLine ({ polar (c, r * 0.30f, angle), polar (c, r * 0.76f, angle) }, juce::jmax (1.6f, r * 0.05f));
+
+        // Centre screw cap
+        const float sr = r * 0.07f;
+        g.setColour (juce::Colour (0xff8e8a80));
+        g.fillEllipse (juce::Rectangle<float> (sr * 2.0f, sr * 2.0f).withCentre (c));
+        g.setColour (juce::Colours::white.withAlpha (0.7f));
+        g.drawEllipse (juce::Rectangle<float> (sr * 2.0f, sr * 2.0f).withCentre (c.translated (-0.4f, -0.4f)), 0.6f);
+        return;
+    }
+
     if (ampKnobAluminium)
     {
         // Black knurled base, then a large machined aluminium cap
