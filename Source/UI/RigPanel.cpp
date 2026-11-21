@@ -864,6 +864,55 @@ namespace
     }
 }
 
+namespace
+{
+    // Rubbed / chipped finish along the edges of a rounded box: lighter scuffs
+    // where hands and cases touch it. Deterministic per box (seeded by position).
+    void edgeWear (juce::Graphics& g, juce::Rectangle<float> r, float corner, juce::Colour wearColour,
+                   float amount, int count)
+    {
+        juce::Random rnd ((juce::int64) (r.getX() * 31.0f + r.getY() * 17.0f + r.getWidth()));
+        juce::Path outline;
+        outline.addRoundedRectangle (r.reduced (2.0f), corner);
+        const float len = outline.getLength();
+
+        for (int i = 0; i < count; ++i)
+        {
+            const float at = rnd.nextFloat() * len;
+            const auto p = outline.getPointAlongPath (at);
+            const auto q = outline.getPointAlongPath (juce::jmin (len, at + 3.0f + rnd.nextFloat() * 14.0f));
+            const float inward = rnd.nextFloat() * 2.5f;
+            const auto c = r.getCentre();
+            const auto shift = (c - p) * (inward / juce::jmax (1.0f, p.getDistanceFrom (c)));
+            g.setColour (wearColour.withAlpha (amount * (0.3f + rnd.nextFloat() * 0.7f)));
+            g.drawLine (juce::Line<float> (p + shift, q + shift), 0.8f + rnd.nextFloat() * 1.6f);
+        }
+
+        // a few chips: small bright metal flecks
+        for (int i = 0; i < count / 6; ++i)
+        {
+            const auto p = outline.getPointAlongPath (rnd.nextFloat() * len);
+            const float sz = 0.8f + rnd.nextFloat() * 2.0f;
+            g.setColour (juce::Colour (0xffd6d8dc).withAlpha (amount * (0.6f + rnd.nextFloat() * 0.4f)));
+            g.fillEllipse (juce::Rectangle<float> (sz * 1.6f, sz).withCentre (p));
+        }
+    }
+
+    // Fine hairline scratches on a flat surface
+    void scratches (juce::Graphics& g, juce::Rectangle<float> r, int count, float alpha, int seed)
+    {
+        juce::Random rnd (seed);
+        for (int i = 0; i < count; ++i)
+        {
+            const auto p = juce::Point<float> (r.getX() + rnd.nextFloat() * r.getWidth(), r.getY() + rnd.nextFloat() * r.getHeight());
+            const float a = rnd.nextFloat() * juce::MathConstants<float>::pi;
+            const float l = 6.0f + rnd.nextFloat() * 26.0f;
+            g.setColour (juce::Colours::white.withAlpha (alpha * (0.4f + rnd.nextFloat() * 0.6f)));
+            g.drawLine (p.x, p.y, p.x + std::cos (a) * l, p.y + std::sin (a) * l, 0.6f);
+        }
+    }
+}
+
 // Background wall, title bar and the soft shadows every unit casts on it.
 // Drawn once at design size; paint() just blits it.
 void RigPanel::buildBackdrop()
@@ -903,6 +952,35 @@ void RigPanel::buildBackdrop()
         g.setColour (juce::Colours::white.withAlpha (0.10f));
         g.fillRect (bar.withHeight (1.0f));
         realism::dropShadow (g, bar.withTop (bar.getBottom() - 4.0f), 0.0f, 10, { 0, 4 }, 0.6f);
+
+        // Engraved brushed-aluminium nameplate, screwed to the wood
+        const auto plate = juce::Rectangle<float> (380.0f, 34.0f).withCentre (bar.getCentre());
+        realism::dropShadow (g, plate, 4.0f, 6, { 0, 3 }, 0.8f);
+        g.setFillType (juce::FillType (brushedAlu, juce::AffineTransform::translation (plate.getX(), plate.getY())));
+        g.fillRoundedRectangle (plate, 4.0f);
+        juce::ColourGradient sheenGrad (juce::Colours::white.withAlpha (0.28f), plate.getX(), plate.getY(),
+                                        juce::Colours::black.withAlpha (0.18f), plate.getX(), plate.getBottom(), false);
+        sheenGrad.addColour (0.5, juce::Colours::white.withAlpha (0.04f));
+        g.setGradientFill (sheenGrad);
+        g.fillRoundedRectangle (plate, 4.0f);
+        realism::bevel (g, plate, 4.0f, 1.5f, 0.7f, 0.6f);
+        g.setColour (juce::Colours::black.withAlpha (0.6f));
+        g.drawRoundedRectangle (plate, 4.0f, 0.8f);
+
+        // engraving: dark cut with a light lower lip
+        const auto textArea = plate.reduced (34.0f, 0.0f).translated (0.0f, 1.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.55f));
+        LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", textArea.translated (0.0f, 1.0f), 24.0f, juce::Justification::centred);
+        g.setColour (juce::Colour (0xff17181b));
+        LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", textArea, 24.0f, juce::Justification::centred);
+
+        for (auto p : { juce::Point<float> (plate.getX() + 14.0f, plate.getCentreY()), juce::Point<float> (plate.getRight() - 14.0f, plate.getCentreY()) })
+        {
+            realism::softShadowEllipse (g, p, 4.5f, 2.0f, { 0.6f, 1.2f }, 0.45f);
+            realism::spunMetal (g, p, 4.5f, juce::Colour (0xffb8bcc2), 55.0f);
+            g.setColour (juce::Colours::black.withAlpha (0.65f));
+            g.drawLine (p.x - 3.0f, p.y + 1.0f, p.x + 3.0f, p.y - 1.0f, 1.1f);
+        }
     }
 
     // Soft shadows: a wide ambient one plus a tight contact one per unit
@@ -911,8 +989,8 @@ void RigPanel::buildBackdrop()
         realism::dropShadow (g, r.toFloat(), corner, 26, { 4, 14 }, 0.75f);
         realism::dropShadow (g, r.toFloat(), corner, 5,  { 1, 3 },  0.85f);
     };
-    castShadow (vibeArea, 12.0f);
-    castShadow (odArea, 12.0f);
+    castShadow (vibeArea.withHeight (vibeArea.getHeight() + 7), 12.0f);
+    castShadow (odArea.withHeight (odArea.getHeight() + 7), 12.0f);
     castShadow (ampArea.withTrimmedTop (14), 10.0f);
     castShadow (rackArea, 4.0f);
     castShadow (bottomArea, 8.0f);
@@ -940,8 +1018,6 @@ void RigPanel::paint (juce::Graphics& g)
     g.drawImageAt (backdrop, 0, 0);
 
     const auto& sk = skin();
-    g.setColour (sk.titleText);
-    LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", titleBar.toFloat().translated (0.0f, 1.0f), 26.0f, juce::Justification::centred);
     g.setColour (sk.titleText.withAlpha (0.7f));
     g.setFont (LnF::condensed (15.0f));
     g.drawText ("SKIN", juce::Rectangle<int> (18, 11, 44, 26), juce::Justification::centredRight, false);
@@ -1018,6 +1094,17 @@ void RigPanel::drawPedal (juce::Graphics& g, juce::Rectangle<float> r, juce::Col
 {
     constexpr float corner = 12.0f;
 
+    // Side wall of the die-cast box (we look at it slightly from the front)
+    {
+        const auto side = r.translated (0.0f, 7.0f);
+        juce::ColourGradient wall (bottom.darker (0.35f), side.getX(), side.getBottom() - 10.0f,
+                                   bottom.darker (1.4f), side.getX(), side.getBottom(), false);
+        g.setGradientFill (wall);
+        g.fillRoundedRectangle (side, corner);
+        g.setColour (juce::Colours::white.withAlpha (0.10f));
+        g.drawHorizontalLine ((int) side.getBottom() - 2, side.getX() + corner, side.getRight() - corner);
+    }
+
     // Die-cast enclosure: rounded edges catch the light, flat top is lit from above
     juce::ColourGradient body (top.brighter (0.12f), r.getX(), r.getY(), bottom, r.getX() + r.getWidth() * 0.3f, r.getBottom(), false);
     body.addColour (0.55, top.interpolatedWith (bottom, 0.5f));
@@ -1040,6 +1127,10 @@ void RigPanel::drawPedal (juce::Graphics& g, juce::Rectangle<float> r, juce::Col
     g.drawRoundedRectangle (r.reduced (5.0f), corner - 5.0f, 1.0f);
     g.setColour (juce::Colours::black.withAlpha (0.8f));
     g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
+
+    // Gig wear: rubbed edges, chips and hairline scratches
+    edgeWear (g, r, corner, juce::Colours::white, 0.22f, 90);
+    scratches (g, r.reduced (16.0f), 14, 0.07f, (int) r.getY());
 
     // Bottom-plate screws
     for (auto p : { r.getTopLeft().translated (13, 13), r.getTopRight().translated (-13, 13),
@@ -1138,6 +1229,7 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.setGradientFill (light);
     g.fillRoundedRectangle (cab, 10.0f);
     realism::bevel (g, cab, 10.0f, 4.0f, 0.22f, 0.6f);
+    edgeWear (g, cab, 10.0f, juce::Colours::white, 0.09f, 260);
 
     // Chrome corner protectors with rivets
     for (int i = 0; i < 4; ++i)
@@ -1197,6 +1289,9 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.drawRect (panel, 2.5f);
     g.setColour (sk.panelTrim.withAlpha (0.45f));
     g.drawRect (panel.reduced (6.0f), 1.0f);
+    for (auto p : { panel.getTopLeft().translated (12, 12), panel.getTopRight().translated (-12, 12),
+                    panel.getBottomLeft().translated (12, -12), panel.getBottomRight().translated (-12, -12) })
+        drawScrew (g, p, 3.2f);
 
     // Channel label + input jacks (hex nut, chrome ring, dark socket)
     g.setColour (sk.panelText);
@@ -1361,6 +1456,38 @@ void RigPanel::drawRack (juce::Graphics& g) const
             drawScrew (g, { x, y + 2.0f }, 5.5f);
         }
 
+    // Chrome rack handles on both ears
+    for (auto x : { a.getX() + 12.0f, a.getRight() - 12.0f })
+    {
+        const float y0 = a.getY() + 48.0f, y1 = a.getBottom() - 48.0f;
+        const auto bar = juce::Rectangle<float> (x - 5.0f, y0, 10.0f, y1 - y0);
+
+        // cast shadow on the ear (handle stands off the panel)
+        g.setColour (juce::Colours::black.withAlpha (0.45f));
+        g.fillRoundedRectangle (bar.translated (4.0f, 7.0f).expanded (1.0f, 0.0f), 5.0f);
+
+        // round bar: cylindrical chrome shading across its width
+        juce::ColourGradient cyl (juce::Colour (0xff5e636a), bar.getX(), 0.0f, juce::Colour (0xff3a3e44), bar.getRight(), 0.0f, false);
+        cyl.addColour (0.25, juce::Colour (0xfff6f7f9));
+        cyl.addColour (0.45, juce::Colour (0xffb5bac1));
+        cyl.addColour (0.70, juce::Colour (0xff7d8289));
+        g.setGradientFill (cyl);
+        g.fillRoundedRectangle (bar, 5.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.5f));
+        g.drawRoundedRectangle (bar, 5.0f, 0.7f);
+
+        // mounting posts
+        for (auto y : { y0 + 2.0f, y1 - 2.0f })
+        {
+            realism::softShadowEllipse (g, { x, y }, 6.5f, 3.0f, { 1.5f, 3.0f }, 0.45f);
+            realism::spunMetal (g, { x, y }, 7.0f, juce::Colour (0xffb8bcc2), 60.0f);
+            g.setColour (juce::Colours::black.withAlpha (0.6f));
+            g.drawEllipse (juce::Rectangle<float> (14.0f, 14.0f).withCentre ({ x, y }), 0.7f);
+            g.setColour (juce::Colours::black.withAlpha (0.5f));
+            g.fillEllipse (juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ x, y }));
+        }
+    }
+
     // Anodised, brushed front panel
     const auto face = a.reduced (24.0f, 4.0f);
     fillTextured (g, face, 0.0f, brushedRack);
@@ -1479,6 +1606,7 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
     g.setGradientFill (light);
     g.fillRoundedRectangle (a, 8.0f);
     realism::bevel (g, a, 8.0f, 4.0f, 0.22f, 0.6f);
+    edgeWear (g, a, 8.0f, juce::Colours::white, 0.09f, 260);
 
     for (auto p : { a.getTopLeft().translated (10, 10), a.getTopRight().translated (-10, 10),
                     a.getBottomLeft().translated (10, -10), a.getBottomRight().translated (-10, -10) })
