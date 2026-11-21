@@ -12,7 +12,7 @@
 #include "Modules/IRVerb.h"
 
 //==============================================================================
-// Vintage Guitar Suite
+// Jemini Guitar Rig
 // Chain: [mono] input -> gate detect -> VIBE -> GOLD DRIVE -> NAM amp -> gate -> CAB IR
 //        [stereo] -> DELAY -> REVERB -> IR VERB -> output
 //==============================================================================

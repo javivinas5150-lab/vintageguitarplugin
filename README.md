@@ -1,4 +1,6 @@
-# Vintage Guitar Suite
+# Jemini Guitar Rig
+
+_(repository and project files keep the original working name "VintageGuitarSuite")_
 
 VST3 guitar amp & effects plugin built with JUCE (C++17) for Windows / Cubase 12.
 
@@ -28,7 +30,7 @@ See `ThirdParty/README.md` (NeuralAmpModelerCore - MIT, Eigen - MPL2, nlohmann/j
 2. Check that the JUCE global path is set: **File → Global Paths → Path to JUCE** (e.g. `C:\JUCE`) and **JUCE Modules** (e.g. `C:\JUCE\modules`).
 3. Click **Save and Open in IDE** (Visual Studio 2026).
 4. In Visual Studio, set the configuration to **Release / x64**, right-click **VintageGuitarSuite_VST3** → **Build**.
-5. Copy `Builds\VisualStudio2026\x64\Release\VST3\VintageGuitarSuite.vst3` to `C:\Program Files\Common Files\VST3\`.
+5. Copy `Builds\VisualStudio2026\x64\Release\VST3\JeminiGuitarRig.vst3` to `C:\Program Files\Common Files\VST3\`.
 6. In Cubase: **Studio → VST Plug-in Manager → Rescan**.
 
 ## Project layout

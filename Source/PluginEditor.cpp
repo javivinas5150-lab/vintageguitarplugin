@@ -288,7 +288,7 @@ void VintageGuitarSuiteAudioProcessorEditor::chooseIRFile()
 
         if (error.isNotEmpty())
             juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                    "Vintage Guitar Suite", error);
+                                                    JucePlugin_Name, error);
         refreshCabInfo();
     });
 }
@@ -326,7 +326,7 @@ void VintageGuitarSuiteAudioProcessorEditor::chooseIRVerbFile()
 
         if (error.isNotEmpty())
             juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                    "Vintage Guitar Suite", error);
+                                                    JucePlugin_Name, error);
         refreshIRVerbInfo();
     });
 }
@@ -407,7 +407,7 @@ void VintageGuitarSuiteAudioProcessorEditor::chooseNamFile()
 
         if (error.isNotEmpty())
             juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
-                                                    "Vintage Guitar Suite", error);
+                                                    JucePlugin_Name, error);
         refreshAmpInfo();
     });
 }
@@ -443,7 +443,7 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (cream);
     g.setFont (juce::FontOptions (22.0f, juce::Font::bold));
-    g.drawText ("Vintage Guitar Suite", 0, 14, getWidth(), 30, juce::Justification::centred);
+    g.drawText (JucePlugin_Name, 0, 14, getWidth(), 30, juce::Justification::centred);
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
@@ -476,7 +476,7 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
         g.fillRoundedRectangle (disp, 3.0f);
         g.setColour (juce::Colour (0xff57d6ff));
         g.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::bold));
-        g.drawText ("VGS-PCM", disp, juce::Justification::centred);
+        g.drawText ("JGR-PCM", disp, juce::Justification::centred);
 
         // Section titles and divider
         g.setColour (cream);

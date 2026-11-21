@@ -5,7 +5,7 @@
               version="0.1.0" companyName="Javi Vinas" bundleIdentifier="com.javivinas.vintageguitarsuite"
               cppLanguageStandard="20" defines="NAM_SAMPLE_FLOAT=1&#10;NOMINMAX=1"
               displaySplashScreen="0" pluginFormats="buildVST3" pluginCharacteristicsValue=""
-              pluginName="Vintage Guitar Suite" pluginDesc="Vintage guitar amp and effects suite"
+              pluginName="Jemini Guitar Rig" pluginDesc="Guitar amp, pedals and effects rig"
               pluginManufacturer="Javi Vinas" pluginManufacturerCode="Jv51"
               pluginCode="Vgs1" pluginVST3Category="Fx|Distortion">
   <MAINGROUP id="mGrp01" name="VintageGuitarSuite">
@@ -109,8 +109,8 @@
   <EXPORTFORMATS>
     <VS2026 targetFolder="Builds/VisualStudio2026" extraCompilerFlags="/bigobj /utf-8">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="VintageGuitarSuite" headerPath="../../ThirdParty/NeuralAmpModelerCore&#10;../../ThirdParty/eigen&#10;../../ThirdParty/nlohmann"/>
-        <CONFIGURATION isDebug="0" name="Release" targetName="VintageGuitarSuite" headerPath="../../ThirdParty/NeuralAmpModelerCore&#10;../../ThirdParty/eigen&#10;../../ThirdParty/nlohmann"/>
+        <CONFIGURATION isDebug="1" name="Debug" targetName="JeminiGuitarRig" headerPath="../../ThirdParty/NeuralAmpModelerCore&#10;../../ThirdParty/eigen&#10;../../ThirdParty/nlohmann"/>
+        <CONFIGURATION isDebug="0" name="Release" targetName="JeminiGuitarRig" headerPath="../../ThirdParty/NeuralAmpModelerCore&#10;../../ThirdParty/eigen&#10;../../ThirdParty/nlohmann"/>
       </CONFIGURATIONS>
     </VS2026>
   </EXPORTFORMATS>
