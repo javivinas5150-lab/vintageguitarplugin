@@ -30,6 +30,10 @@
         <FILE id="fVibeC" name="Vibe.cpp" compile="1" resource="0" file="Source/Modules/Vibe.cpp"/>
         <FILE id="fGoldH" name="GoldDrive.h" compile="0" resource="0" file="Source/Modules/GoldDrive.h"/>
         <FILE id="fGoldC" name="GoldDrive.cpp" compile="1" resource="0" file="Source/Modules/GoldDrive.cpp"/>
+        <FILE id="fDlyH" name="StereoDelay.h" compile="0" resource="0" file="Source/Modules/StereoDelay.h"/>
+        <FILE id="fDlyC" name="StereoDelay.cpp" compile="1" resource="0" file="Source/Modules/StereoDelay.cpp"/>
+        <FILE id="fRevH" name="LexReverb.h" compile="0" resource="0" file="Source/Modules/LexReverb.h"/>
+        <FILE id="fRevC" name="LexReverb.cpp" compile="1" resource="0" file="Source/Modules/LexReverb.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="gNam001" name="NAM">

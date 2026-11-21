@@ -5,7 +5,8 @@
 
 //==============================================================================
 // Editor:  pedal row:  VIBE | GOLD DRIVE
-//          rack row:   INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
+//          amp row:    INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
+//          FX rack:    DELAY | REVERB
 //==============================================================================
 class VintageGuitarSuiteAudioProcessorEditor : public juce::AudioProcessorEditor,
                                                private juce::Timer
@@ -66,6 +67,15 @@ private:
     juce::Slider odGainKnob, odTrebleKnob, odOutputKnob;
     juce::Label  odGainLabel, odTrebleLabel, odOutputLabel;
 
+    // FX rack: DELAY | REVERB
+    static constexpr int numDlyKnobs = 5, numRevKnobs = 6;
+    juce::Rectangle<int> fxArea, dlyArea, revArea, dlyLedArea, revLedArea, fxDisplayArea;
+    juce::ToggleButton dlyOnButton { "ON" }, dlyPingPongButton { "PING-PONG" }, revOnButton { "ON" };
+    std::array<juce::Slider, numDlyKnobs> dlyKnobs;
+    std::array<juce::Label,  numDlyKnobs> dlyLabels;
+    std::array<juce::Slider, numRevKnobs> revKnobs;
+    std::array<juce::Label,  numRevKnobs> revLabels;
+
     // Cab section
     juce::Rectangle<int> cabArea;
     juce::TextButton loadIRButton  { "LOAD IR..." };
@@ -86,6 +96,9 @@ private:
     std::unique_ptr<SliderAttachment> vibeSpeedAttachment, vibeIntensityAttachment;
     std::unique_ptr<SliderAttachment> odGainAttachment, odTrebleAttachment, odOutputAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> vibeModeAttachment;
+    std::unique_ptr<ButtonAttachment> dlyOnAttachment, dlyPingPongAttachment, revOnAttachment;
+    std::array<std::unique_ptr<SliderAttachment>, numDlyKnobs> dlyAttachments;
+    std::array<std::unique_ptr<SliderAttachment>, numRevKnobs> revAttachments;
     std::unique_ptr<SliderAttachment> gateThresholdAttachment, gateReleaseAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numAmpKnobs> ampKnobAttachments;
 

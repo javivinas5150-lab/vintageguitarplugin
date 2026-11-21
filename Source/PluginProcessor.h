@@ -7,10 +7,13 @@
 #include "Modules/CabIR.h"
 #include "Modules/Vibe.h"
 #include "Modules/GoldDrive.h"
+#include "Modules/StereoDelay.h"
+#include "Modules/LexReverb.h"
 
 //==============================================================================
 // Vintage Guitar Suite
-// Chain (mono): input -> gate detect -> VIBE -> GOLD DRIVE -> NAM amp -> gate -> CAB IR -> output
+// Chain: [mono] input -> gate detect -> VIBE -> GOLD DRIVE -> NAM amp -> gate -> CAB IR
+//        [stereo] -> DELAY -> REVERB -> output
 //==============================================================================
 class VintageGuitarSuiteAudioProcessor : public juce::AudioProcessor
 {
@@ -37,7 +40,7 @@ public:
     bool acceptsMidi() const override  { return false; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override;   // delay + reverb tails
 
     //==========================================================================
     int getNumPrograms() override                             { return 1; }
@@ -97,6 +100,26 @@ private:
     std::atomic<float>* odGain   = nullptr;
     std::atomic<float>* odTreble = nullptr;
     std::atomic<float>* odOutput = nullptr;
+
+    std::atomic<float>* dlyOn = nullptr;
+    std::atomic<float>* dlyTime = nullptr;
+    std::atomic<float>* dlyFeedback = nullptr;
+    std::atomic<float>* dlyTone = nullptr;
+    std::atomic<float>* dlyMod = nullptr;
+    std::atomic<float>* dlyMix = nullptr;
+    std::atomic<float>* dlyPingPong = nullptr;
+
+    std::atomic<float>* revOn = nullptr;
+    std::atomic<float>* revDecay = nullptr;
+    std::atomic<float>* revSize = nullptr;
+    std::atomic<float>* revPreDelay = nullptr;
+    std::atomic<float>* revTone = nullptr;
+    std::atomic<float>* revMod = nullptr;
+    std::atomic<float>* revMix = nullptr;
+
+    StereoDelay stereoDelay;
+    LexReverb reverb;
+    std::vector<float> monoScratch;   // right channel stand-in on mono tracks
 
     NoiseGate noiseGate;
     Vibe vibe;

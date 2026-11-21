@@ -34,6 +34,41 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     odGain   = apvts.getRawParameterValue ("odGain");
     odTreble = apvts.getRawParameterValue ("odTreble");
     odOutput = apvts.getRawParameterValue ("odOutput");
+
+    dlyOn       = apvts.getRawParameterValue ("dlyOn");
+    dlyTime     = apvts.getRawParameterValue ("dlyTime");
+    dlyFeedback = apvts.getRawParameterValue ("dlyFeedback");
+    dlyTone     = apvts.getRawParameterValue ("dlyTone");
+    dlyMod      = apvts.getRawParameterValue ("dlyMod");
+    dlyMix      = apvts.getRawParameterValue ("dlyMix");
+    dlyPingPong = apvts.getRawParameterValue ("dlyPingPong");
+
+    revOn       = apvts.getRawParameterValue ("revOn");
+    revDecay    = apvts.getRawParameterValue ("revDecay");
+    revSize     = apvts.getRawParameterValue ("revSize");
+    revPreDelay = apvts.getRawParameterValue ("revPreDelay");
+    revTone     = apvts.getRawParameterValue ("revTone");
+    revMod      = apvts.getRawParameterValue ("revMod");
+    revMix      = apvts.getRawParameterValue ("revMix");
+}
+
+double VintageGuitarSuiteAudioProcessor::getTailLengthSeconds() const
+{
+    // How long the sound keeps ringing after you stop playing (used when Cubase renders)
+    double tail = 0.0;
+
+    if (revOn->load() > 0.5f)
+        tail = juce::jmax (tail, (double) revDecay->load() + revPreDelay->load() * 0.001);
+
+    if (dlyOn->load() > 0.5f)
+    {
+        // Repeats until they're ~60 dB down
+        const double fb = juce::jlimit (0.01, 0.95, (double) dlyFeedback->load() / 100.0);
+        const double repeats = std::ceil (-3.0 / std::log10 (fb));
+        tail = juce::jmax (tail, repeats * dlyTime->load() * 0.001);
+    }
+
+    return juce::jmin (tail, 30.0);
 }
 
 //==============================================================================
@@ -179,6 +214,37 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addKnob10 ("odTreble", "Drive Treble", 5.0f);
     addKnob10 ("odOutput", "Drive Output", 5.0f);
 
+    // Rack: Delay
+    const auto addFloat = [&layout] (const juce::String& id, const juce::String& name,
+                                     float min, float max, float def, float centre,
+                                     const juce::String& label)
+    {
+        juce::NormalisableRange<float> range (min, max, 0.01f);
+        if (centre > 0.0f)
+            range.setSkewForCentre (centre);
+
+        layout.add (std::make_unique<juce::AudioParameterFloat> (
+            juce::ParameterID { id, 1 }, name, range, def,
+            juce::AudioParameterFloatAttributes().withLabel (label)));
+    };
+
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "dlyOn", 1 }, "Delay On", false));
+    addFloat ("dlyTime",     "Delay Time",     20.0f,   2000.0f,  380.0f,  400.0f, "ms");
+    addFloat ("dlyFeedback", "Delay Feedback",  0.0f,     95.0f,   35.0f,    0.0f, "%");
+    addFloat ("dlyTone",     "Delay Tone",    1000.0f, 20000.0f, 6000.0f, 5000.0f, "Hz");
+    addFloat ("dlyMod",      "Delay Mod",       0.0f,    100.0f,   20.0f,    0.0f, "%");
+    addFloat ("dlyMix",      "Delay Mix",       0.0f,    100.0f,   25.0f,    0.0f, "%");
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "dlyPingPong", 1 }, "Delay Ping-Pong", false));
+
+    // Rack: Reverb
+    layout.add (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "revOn", 1 }, "Reverb On", false));
+    addFloat ("revDecay",    "Reverb Decay",     0.2f,     20.0f,    2.5f,    2.5f, "s");
+    addFloat ("revSize",     "Reverb Size",      0.0f,    100.0f,   60.0f,    0.0f, "%");
+    addFloat ("revPreDelay", "Reverb Pre-Delay", 0.0f,    200.0f,   20.0f,   40.0f, "ms");
+    addFloat ("revTone",     "Reverb Tone",    1500.0f, 16000.0f, 6000.0f, 5000.0f, "Hz");
+    addFloat ("revMod",      "Reverb Mod",       0.0f,    100.0f,   40.0f,    0.0f, "%");
+    addFloat ("revMix",      "Reverb Mix",       0.0f,    100.0f,   20.0f,    0.0f, "%");
+
     return layout;
 }
 
@@ -192,6 +258,10 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
 
     // Tell Cubase about the overdrive's oversampling delay so it compensates
     setLatencySamples (goldDrive.getLatencySamples());
+
+    stereoDelay.prepare (sampleRate, samplesPerBlock);
+    reverb.prepare (sampleRate, samplesPerBlock);
+    monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
     toneStack.prepare (sampleRate);
 
@@ -291,13 +361,48 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         cabIR.process (mono, numSamples);
     }
 
-    // (Phase 5) Delay/Reverb will go here
-
     // Mono -> all channels
     for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
         buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
 
-    // 7) Output gain
+    // 7) Rack effects in STEREO: DELAY -> REVERB
+    //    (on a mono track they still run, and the left side is kept)
+    if ((int) monoScratch.size() < numSamples)
+        monoScratch.resize ((size_t) numSamples); // only if the host breaks its promised block size
+
+    auto* left  = buffer.getWritePointer (0);
+    auto* right = buffer.getNumChannels() > 1 ? buffer.getWritePointer (1) : monoScratch.data();
+
+    if (buffer.getNumChannels() == 1)
+        std::copy (left, left + numSamples, right);
+
+    if (dlyOn->load() > 0.5f)
+    {
+        StereoDelay::Params p;
+        p.timeMs   = dlyTime->load();
+        p.feedback = dlyFeedback->load() / 100.0f;
+        p.toneHz   = dlyTone->load();
+        p.mod      = dlyMod->load() / 100.0f;
+        p.mix      = dlyMix->load() / 100.0f;
+        p.pingPong = dlyPingPong->load() > 0.5f;
+        stereoDelay.setParameters (p);
+        stereoDelay.process (left, right, numSamples);
+    }
+
+    if (revOn->load() > 0.5f)
+    {
+        LexReverb::Params p;
+        p.decaySec   = revDecay->load();
+        p.size       = revSize->load() / 100.0f;
+        p.preDelayMs = revPreDelay->load();
+        p.toneHz     = revTone->load();
+        p.mod        = revMod->load() / 100.0f;
+        p.mix        = revMix->load() / 100.0f;
+        reverb.setParameters (p);
+        reverb.process (left, right, numSamples);
+    }
+
+    // 8) Output gain
     outputGain.applyGain (buffer, numSamples);
 }
 

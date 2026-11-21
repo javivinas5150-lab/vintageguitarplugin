@@ -158,6 +158,60 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     odTrebleAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "odTreble", odTrebleKnob);
     odOutputAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "odOutput", odOutputKnob);
 
+    // --- FX rack ---
+    for (auto* b : { &dlyOnButton, &dlyPingPongButton, &revOnButton })
+    {
+        b->setColour (juce::ToggleButton::textColourId, cream);
+        b->setColour (juce::ToggleButton::tickColourId, cream);
+        addAndMakeVisible (*b);
+    }
+    dlyOnButton.onStateChange = [this] { repaint (dlyLedArea.expanded (4)); };
+    revOnButton.onStateChange = [this] { repaint (revLedArea.expanded (4)); };
+
+    struct KnobDef { const char* name; const char* id; const char* suffix; double def; int decimals; };
+
+    const std::array<KnobDef, numDlyKnobs> dlyDefs {{
+        { "TIME",     "dlyTime",     " ms", 380.0,  0 },
+        { "FEEDBACK", "dlyFeedback", " %",  35.0,   0 },
+        { "TONE",     "dlyTone",     " Hz", 6000.0, 0 },
+        { "MOD",      "dlyMod",      " %",  20.0,   0 },
+        { "MIX",      "dlyMix",      " %",  25.0,   0 } }};
+
+    const std::array<KnobDef, numRevKnobs> revDefs {{
+        { "DECAY",     "revDecay",    " s",  2.5,    1 },
+        { "SIZE",      "revSize",     " %",  60.0,   0 },
+        { "PRE-DELAY", "revPreDelay", " ms", 20.0,   0 },
+        { "TONE",      "revTone",     " Hz", 6000.0, 0 },
+        { "MOD",       "revMod",      " %",  40.0,   0 },
+        { "MIX",       "revMix",      " %",  20.0,   0 } }};
+
+    for (size_t i = 0; i < (size_t) numDlyKnobs; ++i)
+    {
+        setupKnob (dlyKnobs[i], dlyLabels[i], dlyDefs[i].name, 11.0f, 70, dlyDefs[i].suffix, dlyDefs[i].def);
+        dlyAttachments[i] = std::make_unique<SliderAttachment> (audioProcessor.apvts, dlyDefs[i].id, dlyKnobs[i]);
+        dlyKnobs[i].setNumDecimalPlacesToDisplay (dlyDefs[i].decimals);
+    }
+
+    for (size_t i = 0; i < (size_t) numRevKnobs; ++i)
+    {
+        setupKnob (revKnobs[i], revLabels[i], revDefs[i].name, 11.0f, 70, revDefs[i].suffix, revDefs[i].def);
+        revAttachments[i] = std::make_unique<SliderAttachment> (audioProcessor.apvts, revDefs[i].id, revKnobs[i]);
+        revKnobs[i].setNumDecimalPlacesToDisplay (revDefs[i].decimals);
+    }
+
+    dlyOnAttachment       = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "dlyOn",       dlyOnButton);
+    dlyPingPongAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "dlyPingPong", dlyPingPongButton);
+    revOnAttachment       = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "revOn",       revOnButton);
+
+    // Tidy number display on the other knobs
+    for (auto* k : { &odGainKnob, &odTrebleKnob, &odOutputKnob })
+        k->setNumDecimalPlacesToDisplay (1);
+    vibeSpeedKnob.setNumDecimalPlacesToDisplay (1);
+    vibeIntensityKnob.setNumDecimalPlacesToDisplay (0);
+    lowCutKnob.setNumDecimalPlacesToDisplay (0);
+    highCutKnob.setNumDecimalPlacesToDisplay (0);
+    gateReleaseKnob.setNumDecimalPlacesToDisplay (0);
+
     lastFolder   = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
     lastIRFolder = lastFolder;
 
@@ -165,7 +219,7 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     refreshCabInfo();
     startTimerHz (15); // gate LED + keeps the model / IR names in sync
 
-    setSize (1180, 640);
+    setSize (1180, 720);
 }
 
 //==============================================================================
@@ -307,8 +361,46 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Vibe  -  Gold Drive  -  Gate  -  NAM Amp  -  Cab IR", 0, 42, getWidth(), 16,
+    g.drawText ("Vibe  -  Gold Drive  -  Gate  -  NAM Amp  -  Cab IR  -  Delay  -  Reverb", 0, 42, getWidth(), 16,
                 juce::Justification::centred);
+
+    // --- FX rack unit (PCM style): black faceplate, rack ears, display ---
+    {
+        const auto rack = fxArea.toFloat();
+        juce::ColourGradient face (juce::Colour (0xff26272b), rack.getTopLeft(),
+                                   juce::Colour (0xff141518), rack.getBottomLeft(), false);
+        g.setGradientFill (face);
+        g.fillRoundedRectangle (rack, 4.0f);
+        g.setColour (silver.withAlpha (0.7f));
+        g.drawRoundedRectangle (rack.reduced (0.5f), 4.0f, 1.0f);
+
+        // Rack ears with screw holes
+        for (auto ear : { rack.withWidth (22.0f), rack.withLeft (rack.getRight() - 22.0f) })
+        {
+            g.setColour (juce::Colour (0xff3a3b40));
+            g.fillRect (ear);
+            g.setColour (juce::Colours::black);
+            for (float y : { ear.getY() + 18.0f, ear.getBottom() - 26.0f })
+                g.fillRoundedRectangle (ear.getCentreX() - 4.0f, y, 8.0f, 12.0f, 3.0f);
+        }
+
+        // Display window
+        const auto disp = fxDisplayArea.toFloat();
+        g.setColour (juce::Colour (0xff0b1418));
+        g.fillRoundedRectangle (disp, 3.0f);
+        g.setColour (juce::Colour (0xff57d6ff));
+        g.setFont (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(), 14.0f, juce::Font::bold));
+        g.drawText ("VGS-PCM", disp, juce::Justification::centred);
+
+        // Section titles and divider
+        g.setColour (cream);
+        g.setFont (juce::FontOptions (14.0f, juce::Font::bold));
+        g.drawText ("DELAY",  dlyArea.withHeight (24).withWidth (60), juce::Justification::centredLeft);
+        g.drawText ("REVERB", revArea.withHeight (24).withWidth (70), juce::Justification::centredLeft);
+
+        g.setColour (silver.withAlpha (0.25f));
+        g.drawVerticalLine ((dlyArea.getRight() + revArea.getX()) / 2, rack.getY() + 10.0f, rack.getBottom() - 10.0f);
+    }
 
     // --- Pedals ---
     const auto drawLed = [&g] (juce::Rectangle<int> area, bool on)
@@ -346,6 +438,8 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (18.0f, juce::Font::bold));
     g.drawText ("GOLD DRIVE", odArea.withHeight (34), juce::Justification::centred);
     drawLed (odLedArea, odOnButton.getToggleState());
+    drawLed (dlyLedArea, dlyOnButton.getToggleState());
+    drawLed (revLedArea, revOnButton.getToggleState());
 
     // Gate, amp and cab panels
     for (auto [panel, title] : { std::pair { gateArea, "GATE" },
@@ -373,11 +467,54 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 void VintageGuitarSuiteAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (20);
-    area.removeFromTop (50); // title space
+    area.removeFromTop (45); // title space
 
     // --- Pedal row (centred): VIBE | GOLD DRIVE ---
-    auto pedalRow = area.removeFromTop (220);
-    area.removeFromTop (14);
+    auto pedalRow = area.removeFromTop (180);
+    area.removeFromTop (10);
+
+    // --- FX rack at the bottom: DELAY | REVERB ---
+    fxArea = area.removeFromBottom (165);
+    area.removeFromBottom (10);
+    {
+        auto rack = fxArea.reduced (30, 10);   // inside the rack ears
+
+        auto header = rack.removeFromTop (24);
+        fxDisplayArea = header.removeFromRight (130).withSizeKeepingCentre (120, 22);
+
+        auto half = rack.getWidth() / 2;
+        dlyArea = rack.removeFromLeft (half).reduced (8, 0);
+        revArea = rack.reduced (8, 0);
+
+        // Titles sit in the header row; ON + LED (and PING-PONG) to their right
+        dlyArea = dlyArea.withTop (header.getY()).withBottom (rack.getBottom());
+        revArea = revArea.withTop (header.getY()).withBottom (rack.getBottom());
+
+        auto dHead = dlyArea.withHeight (24).withTrimmedLeft (60);
+        dlyOnButton.setBounds (dHead.removeFromLeft (52));
+        dlyLedArea = dHead.removeFromLeft (16).withSizeKeepingCentre (12, 12);
+        dHead.removeFromLeft (14);
+        dlyPingPongButton.setBounds (dHead.removeFromLeft (110));
+
+        auto rHead = revArea.withHeight (24).withTrimmedLeft (70);
+        revOnButton.setBounds (rHead.removeFromLeft (52));
+        revLedArea = rHead.removeFromLeft (16).withSizeKeepingCentre (12, 12);
+
+        auto layoutKnobs = [] (juce::Rectangle<int> r, auto& knobs, auto& labels)
+        {
+            r.removeFromTop (28);
+            const int w = r.getWidth() / (int) knobs.size();
+            for (size_t i = 0; i < knobs.size(); ++i)
+            {
+                auto col = r.removeFromLeft (w);
+                labels[i].setBounds (col.removeFromTop (15));
+                knobs[i].setBounds (col);
+            }
+        };
+
+        layoutKnobs (dlyArea, dlyKnobs, dlyLabels);
+        layoutKnobs (revArea, revKnobs, revLabels);
+    }
 
     constexpr int pedalWidth = 320, pedalGap = 40;
     auto pedals = pedalRow.withSizeKeepingCentre (pedalWidth * 2 + pedalGap, pedalRow.getHeight());
@@ -390,12 +527,12 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
         auto p = vibeArea.reduced (14);
         p.removeFromTop (28); // title
 
+        // Mode selector on the left, ON + LED on the right
         auto onRow = p.removeFromTop (26);
         vibeLedArea = onRow.removeFromRight (16).withSizeKeepingCentre (14, 14);
-        vibeOnButton.setBounds (onRow.withSizeKeepingCentre (60, 26));
-
-        vibeModeBox.setBounds (p.removeFromBottom (26).withSizeKeepingCentre (130, 24));
-        p.removeFromBottom (4);
+        vibeOnButton.setBounds (onRow.removeFromRight (60));
+        vibeModeBox.setBounds (onRow.removeFromLeft (110).withSizeKeepingCentre (110, 24));
+        p.removeFromTop (4);
 
         auto speedCol = p.removeFromLeft (p.getWidth() / 2);
         vibeSpeedLabel.setBounds     (speedCol.removeFromTop (16));
@@ -411,8 +548,8 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
 
         auto onRow = p.removeFromTop (26);
         odLedArea = onRow.removeFromRight (16).withSizeKeepingCentre (14, 14);
-        odOnButton.setBounds (onRow.withSizeKeepingCentre (60, 26));
-        p.removeFromTop (6);
+        odOnButton.setBounds (onRow.removeFromRight (60));
+        p.removeFromTop (4);
 
         const int colW = p.getWidth() / 3;
         juce::Slider* knobs[] = { &odGainKnob, &odTrebleKnob, &odOutputKnob };
