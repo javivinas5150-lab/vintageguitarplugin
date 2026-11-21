@@ -77,5 +77,11 @@ private:
 
     void drawFootswitch    (juce::Graphics&, juce::Rectangle<float> area, bool down);
     void drawMiniToggle    (juce::Graphics&, juce::ToggleButton&, bool highlighted);
+public:
+    void drawLabel (juce::Graphics&, juce::Label&) override;
+    // Printed lettering: a soft dark shadow under light text keeps small type crisp and legible
+    static void drawPrintedText (juce::Graphics&, const juce::String&, juce::Rectangle<float>, juce::Justification, juce::Colour);
+    static const juce::Colour labelWhite;
+private:
     void drawModeSwitch    (juce::Graphics&, juce::ToggleButton&);
 };

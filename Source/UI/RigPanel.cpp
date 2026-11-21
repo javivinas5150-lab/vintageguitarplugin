@@ -1307,9 +1307,9 @@ void RigPanel::buildBackdrop()
         }
         else
         {
-            g.setColour (juce::Colours::white.withAlpha (0.85f));
-            g.setFont (LnF::condensed (14.0f));
-            g.drawText ("JEMINI GUITAR RIG   -   NAM AMP  /  PEDALS  /  STUDIO EFFECTS", bar, juce::Justification::centred, false);
+            g.setFont (LnF::condensed (15.0f));
+            LnF::drawPrintedText (g, "JEMINI GUITAR RIG   -   NAM AMP  /  PEDALS  /  STUDIO EFFECTS", bar.toFloat(),
+                                  juce::Justification::centred, LnF::labelWhite.withAlpha (0.85f));
         }
     }
 
@@ -1352,9 +1352,8 @@ void RigPanel::paint (juce::Graphics& g)
     g.drawImage (backdrop, juce::Rectangle<float> ((float) designWidth, (float) designHeight));
 
     const auto& sk = skin();
-    g.setColour (juce::Colours::white);
-    g.setFont (LnF::condensed (15.0f));
-    g.drawText ("SKIN", juce::Rectangle<int> (18, 11, 44, 26), juce::Justification::centredRight, false);
+    g.setFont (LnF::condensed (16.0f));
+    LnF::drawPrintedText (g, "SKIN", juce::Rectangle<float> (14.0f, 11.0f, 48.0f, 26.0f), juce::Justification::centredRight, LnF::labelWhite);
 
     // Preset display: recessed LCD window in the rack display colour
     {
@@ -1413,11 +1412,11 @@ void RigPanel::paint (juce::Graphics& g)
     {
         const auto sw = vibeMode.getBounds();
         const bool vib = vibeMode.getToggleState();
-        g.setFont (LnF::condensed (12.5f));
-        g.setColour (juce::Colours::white.withAlpha (vib ? 0.85f : 1.0f));
-        g.drawText ("CHORUS",  juce::Rectangle<int> (sw.getX() - 26, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
-        g.setColour (juce::Colours::white.withAlpha (vib ? 1.0f : 0.85f));
-        g.drawText ("VIBRATO", juce::Rectangle<int> (sw.getRight() - 24, sw.getY() - 16, 50, 14), juce::Justification::centred, false);
+        g.setFont (LnF::condensed (13.5f));
+        LnF::drawPrintedText (g, "CHORUS",  juce::Rectangle<float> ((float) sw.getX() - 28.0f, (float) sw.getY() - 17.0f, 54.0f, 15.0f),
+                              juce::Justification::centred, LnF::labelWhite.withAlpha (vib ? 0.8f : 1.0f));
+        LnF::drawPrintedText (g, "VIBRATO", juce::Rectangle<float> ((float) sw.getRight() - 26.0f, (float) sw.getY() - 17.0f, 54.0f, 15.0f),
+                              juce::Justification::centred, LnF::labelWhite.withAlpha (vib ? 1.0f : 0.8f));
     }
     drawLed (g, vibeLedArea, vibeOn.getToggleState(), LnF::redLed);
 
@@ -1745,9 +1744,8 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.setFont (LnF::condensed (11.0f));
     for (int j = 0; j < 2; ++j)
     {
-        g.setColour (juce::Colours::white.withAlpha (j == selectedInput ? 1.0f : 0.85f));
-        g.drawText (juce::String (j + 1), juce::Rectangle<float> (20.0f, 14.0f).withCentre (jackCentre (j).translated (j == 0 ? -17.0f : 17.0f, 16.0f)),
-                    juce::Justification::centred, false);
+        LnF::drawPrintedText (g, juce::String (j + 1), juce::Rectangle<float> (20.0f, 14.0f).withCentre (jackCentre (j).translated (j == 0 ? -17.0f : 17.0f, 16.0f)),
+                              juce::Justification::centred, LnF::labelWhite.withAlpha (j == selectedInput ? 1.0f : 0.8f));
     }
 
     // Divider before the logo plate
@@ -1936,9 +1934,9 @@ void RigPanel::drawRack (juce::Graphics& g) const
         const bool rackOn = dlyOn.getToggleState() || revOn.getToggleState() || irvOn.getToggleState();
         const auto led = juce::Rectangle<int> (10, 10).withCentre ({ (int) logo.getX() + 6, (int) logo.getY() + 106 });
         drawLed (g, led, rackOn, juce::Colour (0xff40ff70));
-        g.setColour (juce::Colours::white);
-        g.setFont (LnF::condensed (13.0f));
-        g.drawText ("POWER", juce::Rectangle<float> (logo.getX() + 18.0f, logo.getY() + 98.0f, 60.0f, 16.0f), juce::Justification::centredLeft, false);
+        g.setFont (LnF::condensed (14.0f));
+        LnF::drawPrintedText (g, "POWER", juce::Rectangle<float> (logo.getX() + 18.0f, logo.getY() + 98.0f, 60.0f, 16.0f),
+                              juce::Justification::centredLeft, LnF::labelWhite);
     }
 
     // Display: recessed bezel, smoked red glass, glowing segments, reflection

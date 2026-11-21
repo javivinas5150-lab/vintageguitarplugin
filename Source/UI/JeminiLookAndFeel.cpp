@@ -1,10 +1,11 @@
 #include "JeminiLookAndFeel.h"
 #include "Realism.h"
 
-const juce::Colour JeminiLookAndFeel::cream      (0xfffbf8f0);
+const juce::Colour JeminiLookAndFeel::cream      (0xfff6f3ea);
+const juce::Colour JeminiLookAndFeel::labelWhite (0xfff4f3ef);
 const juce::Colour JeminiLookAndFeel::ink        (0xff2a2010);
 const juce::Colour JeminiLookAndFeel::panelBlack (0xff111113);
-const juce::Colour JeminiLookAndFeel::silver     (0xfff3f4f6);
+const juce::Colour JeminiLookAndFeel::silver     (0xffebedf0);
 const juce::Colour JeminiLookAndFeel::blueLed    (0xff57d6ff);
 const juce::Colour JeminiLookAndFeel::redLed     (0xffff3b2a);
 
@@ -487,10 +488,10 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "rackSelect")
     {
         const bool selected = button.getToggleState();
-        g.setColour (selected ? juce::Colours::white : juce::Colours::white.withAlpha (highlighted ? 1.0f : 0.85f));
         g.setFont (condensed (15.0f));
-        g.drawText (button.getButtonText(), button.getLocalBounds().withTrimmedLeft (2),
-                    juce::Justification::centredLeft, false);
+        drawPrintedText (g, button.getButtonText(), button.getLocalBounds().withTrimmedLeft (2).toFloat(),
+                         juce::Justification::centredLeft,
+                         selected ? juce::Colours::white : labelWhite.withAlpha (highlighted ? 1.0f : 0.85f));
         return;
     }
 
@@ -579,9 +580,9 @@ void JeminiLookAndFeel::drawMiniToggle (juce::Graphics& g, juce::ToggleButton& b
 
     // Label
     auto textColour = button.findColour (juce::ToggleButton::textColourId);
-    g.setColour (highlighted ? textColour.brighter (0.3f) : textColour);
     g.setFont (condensed (juce::jmin (16.0f, area.getHeight() * 0.8f)));
-    g.drawText (button.getButtonText(), area.withTrimmedLeft (5.0f), juce::Justification::centredLeft, true);
+    drawPrintedText (g, button.getButtonText(), area.withTrimmedLeft (5.0f), juce::Justification::centredLeft,
+                     highlighted ? textColour.brighter (0.3f) : textColour);
 }
 
 //==============================================================================
@@ -727,4 +728,31 @@ void JeminiLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, 
 juce::Font JeminiLookAndFeel::getComboBoxFont (juce::ComboBox&)
 {
     return condensed (14.0f);
+}
+
+//==============================================================================
+void JeminiLookAndFeel::drawPrintedText (juce::Graphics& g, const juce::String& text, juce::Rectangle<float> r,
+                                         juce::Justification just, juce::Colour colour)
+{
+    if (colour.getPerceivedBrightness() > 0.5f)   // light ink: soft shadow below, like silk-screen on a panel
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.55f * colour.getFloatAlpha()));
+        g.drawText (text, r.translated (0.0f, 1.0f), just, false);
+        g.setColour (juce::Colours::black.withAlpha (0.25f * colour.getFloatAlpha()));
+        g.drawText (text, r.translated (0.6f, 1.4f), just, false);
+    }
+    g.setColour (colour);
+    g.drawText (text, r, just, false);
+}
+
+void JeminiLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+{
+    g.fillAll (label.findColour (juce::Label::backgroundColourId));
+    if (label.isBeingEdited()) return;
+
+    const auto font = getLabelFont (label);
+    g.setFont (font);
+    const auto area = getLabelBorderSize (label).subtractedFrom (label.getLocalBounds()).toFloat();
+    const auto colour = label.findColour (juce::Label::textColourId).withMultipliedAlpha (label.isEnabled() ? 1.0f : 0.5f);
+    drawPrintedText (g, label.getText(), area, label.getJustificationType(), colour);
 }
