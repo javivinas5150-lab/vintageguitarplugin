@@ -125,15 +125,14 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
 
     if (ampKnobChicken)
     {
-        // Printed ramp under the knob: thin outline wedge growing from min (left) to max (right)
-        const float y0 = c.y + r * 0.80f, x0 = c.x - r * 0.78f, x1 = c.x + r * 0.78f, hMax = r * 0.20f;
-        juce::Path ramp;
-        ramp.startNewSubPath (x0, y0);
-        ramp.lineTo (x1, y0 - hMax * 0.5f);
-        ramp.lineTo (x1, y0 + hMax * 0.5f);
-        ramp.closeSubPath();
-        g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.85f : 0.4f));
-        g.strokePath (ramp, juce::PathStrokeType (juce::jmax (1.0f, r * 0.03f), juce::PathStrokeType::mitered));
+        // Printed triangle under the knob: apex hidden under the knob, base below it
+        juce::Path tri;
+        tri.startNewSubPath (c.x, c.y + r * 0.10f);
+        tri.lineTo (c.x + r * 0.80f, c.y + r * 0.95f);
+        tri.lineTo (c.x - r * 0.80f, c.y + r * 0.95f);
+        tri.closeSubPath();
+        g.setColour (ampKnobNumbers.withAlpha (enabled ? 0.9f : 0.4f));
+        g.strokePath (tri, juce::PathStrokeType (juce::jmax (1.0f, r * 0.035f), juce::PathStrokeType::mitered));
     }
     else
     {
@@ -151,77 +150,93 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
 
     if (ampKnobChicken)
     {
-        // Tall, chunky white chicken head: wide bulb, short broad pointer, visible moulded side wall
-        const float u = r;
-        juce::Path shape;
-        shape.startNewSubPath (-0.13f * u, -0.70f * u);
-        shape.cubicTo (-0.16f * u, -0.54f * u, -0.30f * u, -0.32f * u, -0.383f * u, -0.196f * u);
-        shape.addArc (-0.46f * u, -0.40f * u, 0.92f * u, 0.92f * u,
-                      -0.98f, -juce::MathConstants<float>::twoPi + 0.98f, false);
-        shape.cubicTo (0.30f * u, -0.32f * u, 0.16f * u, -0.54f * u, 0.13f * u, -0.70f * u);
-        shape.cubicTo (0.11f * u, -0.80f * u, -0.11f * u, -0.80f * u, -0.13f * u, -0.70f * u);
-        shape.closeSubPath();
-        shape.applyTransform (juce::AffineTransform::rotation (angle));
-
-        const float height = r * 0.20f;                       // how tall the knob stands off the panel
-        const auto  base   = shape.createPathWithRoundedCorners (0.0f);
-        auto at = [&base] (juce::Point<float> p, float k = 1.0f)
-        { juce::Path q (base); q.applyTransform (juce::AffineTransform::scale (k).translated (p)); return q; };
-        const float taper = 1.13f;                          // base of the knob is wider than its top (conical sides)
-
-        const auto topC = c.translated (0.0f, -height * 0.55f);   // top face sits up, side wall shows below
-        const auto botC = c.translated (0.0f,  height * 0.45f);
-
-        // Contact shadow + soft cast shadow
-        juce::DropShadow (juce::Colours::black.withAlpha (0.85f), (int) (r * 0.18f),
-                          { (int) std::round (r * 0.06f), (int) std::round (r * 0.12f) }).drawForPath (g, at (botC, taper));
-
-        // Side wall: sweep the outline from the base up to the top face
-        const int steps = juce::jmax (6, (int) height);
-        for (int i = 0; i <= steps; ++i)
+        // Two-piece white knob: wide round skirt, with a raised chicken-head pointer moulded on top
+        const auto lightGrad = [] (juce::Point<float> pc, float rad, float t, bool face)
         {
-            const float t = (float) i / (float) steps;
-            const auto pc = botC + (topC - botC) * t;
-            const auto bounds = juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (pc);
-            juce::ColourGradient wall (juce::Colour (0xffd9d6cd).interpolatedWith (juce::Colour (0xff8d897f), 1.0f - t), bounds.getCentreX() - r, pc.y,
-                                       juce::Colour (0xff9b978c).interpolatedWith (juce::Colour (0xff5e5a52), 1.0f - t), bounds.getCentreX() + r, pc.y, false);
-            wall.addColour (0.35, juce::Colour (0xfff1eee6).interpolatedWith (juce::Colour (0xffa6a296), 1.0f - t));
-            g.setGradientFill (wall);
-            g.fillPath (at (pc, taper + (1.0f - taper) * t));
-        }
+            const auto b = juce::Rectangle<float> (rad * 2.0f, rad * 2.0f).withCentre (pc);
+            if (face)
+            {
+                juce::ColourGradient gr (juce::Colour (0xffffffff), b.getTopLeft(), juce::Colour (0xffd2cec3), b.getBottomRight(), false);
+                gr.addColour (0.5, juce::Colour (0xfff4f2ec));
+                return gr;
+            }
+            const auto dark = juce::Colour (0xff8a867c), mid = juce::Colour (0xffe6e3da), lite = juce::Colour (0xfff7f5ef);
+            juce::ColourGradient gr (lite.interpolatedWith (dark, 0.55f * (1.0f - t)), b.getX(), pc.y,
+                                     dark.interpolatedWith (juce::Colour (0xff55524b), 1.0f - t), b.getRight(), pc.y, false);
+            gr.addColour (0.3, mid.interpolatedWith (dark, 0.5f * (1.0f - t)));
+            return gr;
+        };
 
-        // Top face: bright moulded plastic, lit from the upper left; fixed lighting while turning
-        const auto topPath = at (topC);
-        const auto tb = juce::Rectangle<float> (r * 1.8f, r * 1.8f).withCentre (topC);
-        juce::ColourGradient face (juce::Colour (0xffffffff), tb.getTopLeft(),
-                                   juce::Colour (0xffcdc9bd), tb.getBottomRight(), false);
-        face.addColour (0.5, juce::Colour (0xfff2efe7));
-        g.setGradientFill (face);
-        g.fillPath (topPath);
+        // Extrude a path upward from 'from' to 'to', tapering from scale k0 to k1, then fill its top face
+        const auto extrude = [&] (const juce::Path& shape, float rad, juce::Point<float> from, juce::Point<float> to, float k0, float k1)
+        {
+            const int steps = juce::jmax (5, (int) std::ceil (to.getDistanceFrom (from)));
+            for (int i = 0; i <= steps; ++i)
+            {
+                const float t = (float) i / (float) steps;
+                const auto pc = from + (to - from) * t;
+                juce::Path q (shape);
+                q.applyTransform (juce::AffineTransform::scale (k0 + (k1 - k0) * t).translated (pc));
+                g.setGradientFill (lightGrad (pc, rad, t, false));
+                g.fillPath (q);
+            }
+            juce::Path top (shape);
+            top.applyTransform (juce::AffineTransform::scale (k1).translated (to));
+            g.setGradientFill (lightGrad (to, rad, 1.0f, true));
+            g.fillPath (top);
+            return top;
+        };
 
-        // Rounded top edge: dark rim at the lower right, light rim at the upper left
-        g.saveState();
-        g.reduceClipRegion (topPath);
-        g.setColour (juce::Colours::black.withAlpha (0.16f));
-        g.strokePath (at (topC.translated (r * 0.03f, r * 0.04f)), juce::PathStrokeType (r * 0.08f));
-        g.setColour (juce::Colours::white.withAlpha (0.9f));
-        g.strokePath (at (topC.translated (-r * 0.025f, -r * 0.03f)), juce::PathStrokeType (r * 0.05f));
-        // soft sheen on the bulb
-        juce::ColourGradient gloss (juce::Colours::white.withAlpha (0.7f), topC.translated (-r * 0.14f, -r * 0.12f),
-                                    juce::Colours::white.withAlpha (0.0f), topC.translated (r * 0.18f, r * 0.2f), true);
-        g.setGradientFill (gloss);
-        g.fillEllipse (juce::Rectangle<float> (r * 0.5f, r * 0.4f).withCentre (topC.translated (-r * 0.1f, -r * 0.08f)));
-        g.restoreState();
+        // --- skirt -----------------------------------------------------------
+        const float skirtR = r * 0.52f, skirtH = r * 0.13f;
+        juce::Path disc;  disc.addEllipse (-skirtR, -skirtR, skirtR * 2.0f, skirtR * 2.0f);
+        const auto s0 = c.translated (0.0f, skirtH * 0.5f), s1 = c.translated (0.0f, -skirtH * 0.5f);
 
-        g.setColour (juce::Colour (0xff6d685e).withAlpha (0.55f));
-        g.strokePath (topPath, juce::PathStrokeType (0.8f));
+        juce::Path shadowDisc (disc); shadowDisc.applyTransform (juce::AffineTransform::scale (1.08f).translated (s0));
+        juce::DropShadow (juce::Colours::black.withAlpha (0.85f), (int) (r * 0.2f),
+                          { (int) std::round (r * 0.07f), (int) std::round (r * 0.13f) }).drawForPath (g, shadowDisc);
 
-        // Subtle moulded ridge along the pointer (light + shadow line) instead of a painted line
-        const auto p0 = polar (topC, r * 0.16f, angle), p1 = polar (topC, r * 0.66f, angle);
-        g.setColour (juce::Colours::black.withAlpha (enabled ? 0.22f : 0.1f));
-        g.drawLine ({ p0.translated (0.6f, 0.8f), p1.translated (0.6f, 0.8f) }, juce::jmax (1.2f, r * 0.035f));
+        const auto skirtTop = extrude (disc, skirtR, s0, s1, 1.08f, 1.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.18f));
+        g.strokePath (skirtTop, juce::PathStrokeType (0.8f));
+        // soft rounded rim highlight
         g.setColour (juce::Colours::white.withAlpha (0.8f));
-        g.drawLine ({ p0, p1 }, juce::jmax (0.8f, r * 0.02f));
+        g.drawEllipse (juce::Rectangle<float> (skirtR * 1.86f, skirtR * 1.86f).withCentre (s1.translated (-0.4f, -0.6f)), 0.8f);
+
+        // --- raised pointer ----------------------------------------------------
+        const float u = r;
+        juce::Path fin;
+        fin.startNewSubPath (-0.075f * u, -0.66f * u);
+        fin.cubicTo (-0.09f * u, -0.46f * u, -0.17f * u, -0.30f * u, -0.25f * u, -0.17f * u);
+        fin.addArc (-0.30f * u, -0.26f * u, 0.60f * u, 0.60f * u, -0.99f, -juce::MathConstants<float>::twoPi + 0.99f, false);
+        fin.cubicTo (0.17f * u, -0.30f * u, 0.09f * u, -0.46f * u, 0.075f * u, -0.66f * u);
+        fin.cubicTo (0.06f * u, -0.73f * u, -0.06f * u, -0.73f * u, -0.075f * u, -0.66f * u);
+        fin.closeSubPath();
+        fin.applyTransform (juce::AffineTransform::rotation (angle));
+
+        const float finH = r * 0.16f;
+        const auto f0 = s1, f1 = s1.translated (0.0f, -finH);
+        juce::Path finShadow (fin); finShadow.applyTransform (juce::AffineTransform::translation (f0.translated (r * 0.03f, r * 0.05f)));
+        g.setColour (juce::Colours::black.withAlpha (0.18f));
+        g.fillPath (finShadow);
+        const auto finTop = extrude (fin, r * 0.5f, f0, f1, 1.06f, 1.0f);
+
+        // rounded top edge of the pointer
+        g.saveState();
+        g.reduceClipRegion (finTop);
+        juce::Path rimLo (finTop); rimLo.applyTransform (juce::AffineTransform::translation (r * 0.025f, r * 0.035f));
+        g.setColour (juce::Colours::black.withAlpha (0.12f));
+        g.strokePath (rimLo, juce::PathStrokeType (r * 0.06f));
+        juce::Path rimHi (finTop); rimHi.applyTransform (juce::AffineTransform::translation (-r * 0.02f, -r * 0.025f));
+        g.setColour (juce::Colours::white.withAlpha (0.95f));
+        g.strokePath (rimHi, juce::PathStrokeType (r * 0.04f));
+        g.restoreState();
+        g.setColour (juce::Colour (0xff77726a).withAlpha (0.45f));
+        g.strokePath (finTop, juce::PathStrokeType (0.7f));
+
+        // black indicator line along the pointer
+        g.setColour (juce::Colour (0xff121212).withAlpha (enabled ? 0.95f : 0.5f));
+        g.drawLine ({ polar (f1, r * 0.20f, angle), polar (f1, r * 0.62f, angle) }, juce::jmax (1.3f, r * 0.04f));
         return;
     }
 
