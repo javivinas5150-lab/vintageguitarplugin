@@ -24,6 +24,7 @@ public:
     static constexpr int designWidth = 1280, designHeight = 720;
 
     void paint (juce::Graphics&) override;
+    void paintOverChildren (juce::Graphics&) override;
     void resized() override;
 
 private:
@@ -66,6 +67,8 @@ private:
     void drawBottomStrip (juce::Graphics&) const;
     void drawSubPanel (juce::Graphics&, juce::Rectangle<int>, const juce::String& title) const;
     void buildTextures();
+    void buildBackdrop();   // background + soft shadows, cached once after layout
+    void drawMountedShadows (juce::Graphics&, juce::Rectangle<int> within) const;
 
     VintageGuitarSuiteAudioProcessor& audioProcessor;
 
@@ -78,7 +81,7 @@ private:
     std::array<juce::Rectangle<int>, 3> rackLedAreas;
 
     // Textures (generated once)
-    juce::Image tolex, ampGrille, cabGrille;
+    juce::Image tolex, ampGrille, cabGrille, brushedRack, brushedDark, brushedAlu, flakes, paper, wall, backdrop, mountedShadows;
 
     //==========================================================================
     // Pedals

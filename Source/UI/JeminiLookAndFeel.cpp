@@ -1,4 +1,5 @@
 #include "JeminiLookAndFeel.h"
+#include "Realism.h"
 
 const juce::Colour JeminiLookAndFeel::cream      (0xfff2ead3);
 const juce::Colour JeminiLookAndFeel::ink        (0xff2a2010);
@@ -136,15 +137,15 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
     const float skirtR = r * 0.68f;
     const float capR   = r * 0.44f;
 
-    // Drop shadow
-    g.setColour (juce::Colours::black.withAlpha (0.55f));
-    g.fillEllipse (juce::Rectangle<float> (skirtR * 2.1f, skirtR * 2.1f).withCentre (c.translated (0, r * 0.05f)));
+    // Soft shadow cast down-right on the panel
+    realism::softShadowEllipse (g, c, skirtR, skirtR * 0.35f, { r * 0.06f, r * 0.16f }, 0.45f);
 
-    // Silver skirt with brushed radial gradient
-    juce::ColourGradient skirt (juce::Colour (0xffe9ecef), c.translated (-skirtR * 0.4f, -skirtR * 0.5f),
-                                juce::Colour (0xff7d8186), c.translated (skirtR * 0.5f, skirtR * 0.7f), true);
-    g.setGradientFill (skirt);
-    g.fillEllipse (juce::Rectangle<float> (skirtR * 2.0f, skirtR * 2.0f).withCentre (c));
+    // Spun-aluminium skirt with a polished rim
+    realism::spunMetal (g, c, skirtR, juce::Colour (0xffb8bcc2), 70.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.55f));
+    g.drawEllipse (juce::Rectangle<float> (skirtR * 2.0f, skirtR * 2.0f).withCentre (c), 1.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.45f));
+    g.drawEllipse (juce::Rectangle<float> (skirtR * 1.9f, skirtR * 1.9f).withCentre (c.translated (0.0f, -0.4f)), 0.7f);
 
     // Skirt tick marks (rotate with the knob)
     g.setColour (juce::Colour (0xff2b2b2b));
@@ -154,11 +155,19 @@ void JeminiLookAndFeel::drawBlackfaceKnob (juce::Graphics& g, juce::Rectangle<fl
         g.drawLine ({ polar (c, skirtR * 0.82f, a), polar (c, skirtR * 0.96f, a) }, i == 0 ? 2.0f : 0.8f);
     }
 
-    // Black cap
-    juce::ColourGradient cap (juce::Colour (0xff4a4a4e), c.translated (-capR * 0.4f, -capR * 0.6f),
+    // Black bakelite cap: shadow on the skirt, knurled edge, glossy top
+    realism::softShadowEllipse (g, c, capR, capR * 0.25f, { capR * 0.05f, capR * 0.15f }, 0.4f);
+    juce::ColourGradient cap (juce::Colour (0xff47474c), c.translated (-capR * 0.4f, -capR * 0.6f),
                               juce::Colour (0xff050506), c.translated (capR * 0.5f, capR * 0.7f), true);
     g.setGradientFill (cap);
     g.fillEllipse (juce::Rectangle<float> (capR * 2.0f, capR * 2.0f).withCentre (c));
+    g.setColour (juce::Colours::white.withAlpha (0.09f));
+    for (int i = 0; i < 40; ++i)
+    {
+        const float a = (float) i / 40.0f * juce::MathConstants<float>::twoPi;
+        g.drawLine ({ polar (c, capR * 0.86f, a), polar (c, capR * 0.99f, a) }, 0.7f);
+    }
+    realism::specular (g, c, capR, 0.35f);
 
     // Pointer line
     g.setColour (juce::Colours::white.withAlpha (enabled ? 0.95f : 0.5f));
@@ -194,8 +203,7 @@ void JeminiLookAndFeel::drawRackKnob (juce::Graphics& g, juce::Rectangle<float> 
 
     // Knurled body
     const float bodyR = r * 0.62f;
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
-    g.fillEllipse (juce::Rectangle<float> (bodyR * 2.1f, bodyR * 2.1f).withCentre (c.translated (0, r * 0.05f)));
+    realism::softShadowEllipse (g, c, bodyR, bodyR * 0.3f, { r * 0.05f, r * 0.14f }, 0.5f);
 
     juce::ColourGradient body (juce::Colour (0xff3c3d42), c.translated (0, -bodyR),
                                juce::Colour (0xff0d0d0f), c.translated (0, bodyR), false);
@@ -209,12 +217,15 @@ void JeminiLookAndFeel::drawRackKnob (juce::Graphics& g, juce::Rectangle<float> 
         g.drawLine ({ polar (c, bodyR * 0.82f, a), polar (c, bodyR * 0.99f, a) }, 1.0f);
     }
 
-    // Aluminium cap
+    // Rim light on the knurled body
+    g.setColour (juce::Colours::white.withAlpha (0.18f));
+    g.drawEllipse (juce::Rectangle<float> (bodyR * 1.96f, bodyR * 1.96f).withCentre (c.translated (0.0f, -0.5f)), 0.8f);
+
+    // Spun aluminium cap
     const float capR = bodyR * 0.62f;
-    juce::ColourGradient cap (juce::Colour (0xffb9bcc2), c.translated (-capR * 0.5f, -capR * 0.6f),
-                              juce::Colour (0xff55585e), c.translated (capR * 0.5f, capR * 0.7f), true);
-    g.setGradientFill (cap);
-    g.fillEllipse (juce::Rectangle<float> (capR * 2.0f, capR * 2.0f).withCentre (c));
+    realism::spunMetal (g, c, capR, juce::Colour (0xff9fa3aa), 60.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawEllipse (juce::Rectangle<float> (capR * 2.0f, capR * 2.0f).withCentre (c), 0.8f);
 
     // Pointer
     g.setColour (juce::Colours::white);
@@ -239,13 +250,23 @@ void JeminiLookAndFeel::drawPedalKnob (juce::Graphics& g, juce::Rectangle<float>
     }
 
     const float bodyR = r * 0.74f;
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
-    g.fillEllipse (juce::Rectangle<float> (bodyR * 2.1f, bodyR * 2.1f).withCentre (c.translated (0, r * 0.07f)));
+    realism::softShadowEllipse (g, c, bodyR, bodyR * 0.35f, { r * 0.06f, r * 0.18f }, 0.55f);
 
     juce::ColourGradient body (juce::Colour (0xff3a3a3e), c.translated (-bodyR * 0.4f, -bodyR * 0.6f),
                                juce::Colour (0xff060607), c.translated (bodyR * 0.5f, bodyR * 0.7f), true);
     g.setGradientFill (body);
     g.fillEllipse (juce::Rectangle<float> (bodyR * 2.0f, bodyR * 2.0f).withCentre (c));
+
+    // Grip ridges around the skirt + rim light
+    g.setColour (juce::Colours::white.withAlpha (0.08f));
+    for (int i = 0; i < 30; ++i)
+    {
+        const float a = (float) i / 30.0f * juce::MathConstants<float>::twoPi;
+        g.drawLine ({ polar (c, bodyR * 0.75f, a), polar (c, bodyR * 0.98f, a) }, 1.0f);
+    }
+    g.setColour (juce::Colours::white.withAlpha (0.22f));
+    g.drawEllipse (juce::Rectangle<float> (bodyR * 1.96f, bodyR * 1.96f).withCentre (c.translated (0.0f, -0.5f)), 0.8f);
+    realism::specular (g, c, bodyR * 0.66f, 0.3f);
 
     // Chrome top ring
     const float ringR = bodyR * 0.66f;
@@ -340,10 +361,14 @@ void JeminiLookAndFeel::drawFootswitch (juce::Graphics& g, juce::Rectangle<float
     }
     hex.closeSubPath();
 
-    juce::ColourGradient nut (juce::Colour (0xffd9dce0), c.translated (-hr, -hr),
-                              juce::Colour (0xff5a5e64), c.translated (hr, hr), false);
+    realism::softShadowEllipse (g, c, hr * 0.9f, hr * 0.35f, { 1.0f, 3.0f }, 0.5f);
+    juce::ColourGradient nut (juce::Colour (0xfff0f2f4), c.translated (-hr, -hr),
+                              juce::Colour (0xff4a4e54), c.translated (hr, hr), false);
+    nut.addColour (0.5, juce::Colour (0xff9da1a8));
     g.setGradientFill (nut);
     g.fillPath (hex);
+    g.setColour (juce::Colours::white.withAlpha (0.35f));
+    g.strokePath (hex, juce::PathStrokeType (0.8f), juce::AffineTransform::scale (0.9f, 0.9f, c.x, c.y));
     g.setColour (juce::Colours::black.withAlpha (0.5f));
     g.strokePath (hex, juce::PathStrokeType (1.0f));
 
@@ -351,10 +376,15 @@ void JeminiLookAndFeel::drawFootswitch (juce::Graphics& g, juce::Rectangle<float
     const float br = size * (down ? 0.27f : 0.3f);
     juce::ColourGradient dome (juce::Colours::white, c.translated (-br * 0.4f, -br * 0.5f),
                                juce::Colour (down ? 0xff5a5e64 : 0xff8a8e94), c.translated (br * 0.6f, br * 0.7f), true);
+    realism::softShadowEllipse (g, c, br, br * 0.3f, { 0.5f, 1.5f }, 0.45f);
+    realism::spunMetal (g, c, br, juce::Colour (down ? 0xff8a8e94 : 0xffb2b6bc), 65.0f);
     g.setGradientFill (dome);
+    g.setOpacity (0.45f);
     g.fillEllipse (juce::Rectangle<float> (br * 2.0f, br * 2.0f).withCentre (c));
-    g.setColour (juce::Colours::black.withAlpha (0.4f));
+    g.setOpacity (1.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.5f));
     g.drawEllipse (juce::Rectangle<float> (br * 2.0f, br * 2.0f).withCentre (c), 1.0f);
+    realism::specular (g, c, br, 0.8f);
 }
 
 // Small bat-handle toggle switch + text
@@ -376,8 +406,10 @@ void JeminiLookAndFeel::drawMiniToggle (juce::Graphics& g, juce::ToggleButton& b
     const auto leverC = juce::Point<float> (sw.getCentreX(), on ? sw.getY() + lr + 1.5f : sw.getBottom() - lr - 1.5f);
     juce::ColourGradient lever (juce::Colours::white, leverC.translated (-lr * 0.4f, -lr * 0.4f),
                                 juce::Colour (0xff70747a), leverC.translated (lr * 0.6f, lr * 0.6f), true);
+    realism::softShadowEllipse (g, leverC, lr, lr * 0.4f, { 0.4f, 1.4f }, 0.5f);
     g.setGradientFill (lever);
     g.fillEllipse (juce::Rectangle<float> (lr * 2.0f, lr * 2.0f).withCentre (leverC));
+    realism::specular (g, leverC, lr, 0.6f);
 
     // Label
     auto textColour = button.findColour (juce::ToggleButton::textColourId);

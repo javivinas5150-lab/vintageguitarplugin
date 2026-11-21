@@ -43,6 +43,7 @@
       <FILE id="fUiRpC" name="RigPanel.cpp" compile="1" resource="0" file="Source/UI/RigPanel.cpp"/>
       <FILE id="fUiLfH" name="JeminiLookAndFeel.h" compile="0" resource="0" file="Source/UI/JeminiLookAndFeel.h"/>
       <FILE id="fUiLfC" name="JeminiLookAndFeel.cpp" compile="1" resource="0" file="Source/UI/JeminiLookAndFeel.cpp"/>
+      <FILE id="fUiReH" name="Realism.h" compile="0" resource="0" file="Source/UI/Realism.h"/>
     </GROUP>
     <GROUP id="gRes001" name="Resources">
       <FILE id="fFntYt" name="Yellowtail-Regular.ttf" compile="0" resource="1" file="Resources/Fonts/Yellowtail-Regular.ttf"/>

@@ -1,5 +1,6 @@
 #include "RigPanel.h"
 #include "JeminiLookAndFeel.h"
+#include "Realism.h"
 
 using LnF = JeminiLookAndFeel;
 
@@ -424,9 +425,15 @@ void RigPanel::timerCallback()
 //==============================================================================
 void RigPanel::buildTextures()
 {
-    tolex     = makeNoise (160, 160, juce::Colour (0xff17171a), 0.6f, 7);
-    ampGrille = makeGrille (900, 140, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 11);
-    cabGrille = makeGrille (560, 170, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 13);
+    tolex       = realism::makeTolex (192, juce::Colour (0xff1b1b1d), 7);
+    ampGrille   = makeGrille (900, 140, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 11);
+    cabGrille   = makeGrille (560, 170, juce::Colour (0xffcbbf9f), juce::Colour (0xff2a2620), 13);
+    brushedRack = realism::makeBrushed (512, 256, juce::Colour (0xff1e2333), 5.0f, 21);
+    brushedDark = realism::makeBrushed (512, 256, juce::Colour (0xff1d1d21), 4.0f, 23);
+    brushedAlu  = realism::makeBrushed (256, 256, juce::Colour (0xff8d9198), 9.0f, 25);
+    flakes      = realism::makeSpeckle (320, 240, 0.18f, 0.16f, 27);
+    paper       = realism::makeSpeckle (256, 128, 0.35f, 0.10f, 29);
+    wall        = realism::makeTolex (256, juce::Colour (0xff15110f), 31);
 }
 
 //==============================================================================
@@ -584,34 +591,107 @@ void RigPanel::resized()
         meterArea = out.removeFromRight (26).withTrimmedTop (20).withTrimmedBottom (20);
         placeKnob (output, out);
     }
+
+    buildBackdrop();
 }
 
 //==============================================================================
 // DRAWING
 //==============================================================================
+namespace
+{
+    // Fill a rounded rectangle with a tiled image texture
+    void fillTextured (juce::Graphics& g, juce::Rectangle<float> r, float corner, const juce::Image& tex,
+                       float opacity = 1.0f)
+    {
+        juce::FillType fill (tex, juce::AffineTransform::translation (r.getX(), r.getY()));
+        fill.setOpacity (opacity);
+        g.setFillType (fill);
+        g.fillRoundedRectangle (r, corner);
+    }
+}
+
+// Background wall, title bar and the soft shadows every unit casts on it.
+// Drawn once at design size; paint() just blits it.
+void RigPanel::buildBackdrop()
+{
+    backdrop = juce::Image (juce::Image::RGB, designWidth, designHeight, true);
+    juce::Graphics g (backdrop);
+
+    // Dark acoustic wall with a warm spotlight from above
+    g.setFillType (juce::FillType (wall, juce::AffineTransform()));
+    g.fillAll();
+    juce::ColourGradient spot (juce::Colour (0x40ffd8a0), (float) designWidth * 0.45f, 40.0f,
+                               juce::Colour (0x00000000), (float) designWidth * 0.45f, (float) designHeight * 0.95f, true);
+    g.setGradientFill (spot);
+    g.fillAll();
+    g.fillAll (juce::Colours::black.withAlpha (0.3f));
+
+    // Title bar: dark walnut-ish header with a lit edge
+    {
+        const auto bar = titleBar.toFloat();
+        juce::ColourGradient wood (juce::Colour (0xff3a2b20), 0.0f, 0.0f, juce::Colour (0xff17100b), 0.0f, bar.getBottom(), false);
+        g.setGradientFill (wood);
+        g.fillRect (bar);
+        juce::Random rnd (41);
+        for (int i = 0; i < 70; ++i)   // wood grain
+        {
+            const float y = rnd.nextFloat() * bar.getHeight();
+            g.setColour ((rnd.nextBool() ? juce::Colours::black : juce::Colour (0xffc89060)).withAlpha (0.04f + rnd.nextFloat() * 0.05f));
+            juce::Path grain;
+            grain.startNewSubPath (0.0f, y);
+            for (float x = 0.0f; x <= (float) designWidth; x += 160.0f)
+                grain.lineTo (x, y + std::sin (x * 0.004f + (float) i) * 2.0f);
+            g.strokePath (grain, juce::PathStrokeType (0.6f + rnd.nextFloat()));
+        }
+        g.setColour (juce::Colours::black.withAlpha (0.7f));
+        g.fillRect (bar.withTop (bar.getBottom() - 2.0f));
+        g.setColour (juce::Colours::white.withAlpha (0.10f));
+        g.fillRect (bar.withHeight (1.0f));
+        realism::dropShadow (g, bar.withTop (bar.getBottom() - 4.0f), 0.0f, 10, { 0, 4 }, 0.6f);
+    }
+
+    // Soft shadows: a wide ambient one plus a tight contact one per unit
+    auto castShadow = [&g] (juce::Rectangle<int> r, float corner)
+    {
+        realism::dropShadow (g, r.toFloat(), corner, 26, { 4, 14 }, 0.75f);
+        realism::dropShadow (g, r.toFloat(), corner, 5,  { 1, 3 },  0.85f);
+    };
+    castShadow (vibeArea, 12.0f);
+    castShadow (odArea, 12.0f);
+    castShadow (ampArea.withTrimmedTop (14), 10.0f);
+    castShadow (rackArea, 4.0f);
+    castShadow (bottomArea, 8.0f);
+
+    // Parts sitting on top of the units: label, badge, control sub-panels
+    mountedShadows = juce::Image (juce::Image::ARGB, designWidth, designHeight, true);
+    juce::Graphics ms (mountedShadows);
+    realism::dropShadow (ms, modelTagArea.toFloat(), 6.0f, 6, { 2, 4 }, 0.7f);
+    realism::dropShadow (ms, juce::Rectangle<float> (170.0f, 28.0f).withCentre ({ cabGrilleArea.toFloat().getCentreX(), (float) cabGrilleArea.getY() + 22.0f }),
+                         5.0f, 5, { 1, 3 }, 0.7f);
+    for (auto r : { cabToneArea, gateArea, inputArea, outputArea })
+        realism::dropShadow (ms, r.toFloat(), 6.0f, 6, { 0, 3 }, 0.75f);
+}
+
+// Shadows of parts mounted on the units (drawn over the unit bodies, also cached)
+void RigPanel::drawMountedShadows (juce::Graphics& g, juce::Rectangle<int> within) const
+{
+    juce::Graphics::ScopedSaveState s (g);
+    g.reduceClipRegion (within);
+    g.drawImageAt (mountedShadows, 0, 0);
+}
+
 void RigPanel::paint (juce::Graphics& g)
 {
-    // Background: dark stage
-    juce::ColourGradient bg (juce::Colour (0xff201914), 0.0f, 0.0f, juce::Colour (0xff0b0908), 0.0f, (float) designHeight, false);
-    g.setGradientFill (bg);
-    g.fillAll();
+    g.drawImageAt (backdrop, 0, 0);
 
-    // Title bar
-    {
-        juce::ColourGradient bar (juce::Colour (0xff2a221b), 0.0f, 0.0f, juce::Colour (0xff120e0b), 0.0f, (float) titleBar.getBottom(), false);
-        g.setGradientFill (bar);
-        g.fillRect (titleBar);
-        g.setColour (juce::Colours::black);
-        g.drawHorizontalLine (titleBar.getBottom() - 1, 0.0f, (float) designWidth);
-        g.setColour (juce::Colour (0x22ffffff));
-        g.drawHorizontalLine (titleBar.getBottom() - 2, 0.0f, (float) designWidth);
-
-        g.setColour (juce::Colour (0xffe9d9b0));
-        LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", titleBar.toFloat(), 26.0f, juce::Justification::centred);
-    }
+    g.setColour (juce::Colour (0xffeadbb2));
+    LnF::drawSlantedLogo (g, "JEMINI GUITAR RIG", titleBar.toFloat().translated (0.0f, 1.0f), 26.0f, juce::Justification::centred);
 
     // ---- Pedals ----
     drawPedal (g, vibeArea.toFloat(), vibePurpleTop, vibePurpleBottom);
+    g.setColour (juce::Colours::black.withAlpha (0.35f));
+    LnF::drawSlantedLogo (g, "VIBE", vibeArea.withHeight (60).translated (1, 8).toFloat(), 34.0f, juce::Justification::centred);
     g.setColour (LnF::cream);
     LnF::drawSlantedLogo (g, "VIBE", vibeArea.withHeight (60).translated (0, 6).toFloat(), 34.0f, juce::Justification::centred);
 
@@ -621,6 +701,8 @@ void RigPanel::paint (juce::Graphics& g)
     drawLed (g, vibeLedArea, vibeOn.getToggleState(), LnF::redLed);
 
     drawPedal (g, odArea.toFloat(), goldTop, goldBottom);
+    g.setColour (juce::Colours::white.withAlpha (0.35f));
+    LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (1, 7).toFloat(), 30.0f, juce::Justification::centred);
     g.setColour (LnF::ink);
     LnF::drawSlantedLogo (g, "GOLD DRIVE", odArea.withHeight (54).translated (0, 6).toFloat(), 30.0f, juce::Justification::centred);
     drawLed (g, odLedArea, odOn.getToggleState(), LnF::redLed);
@@ -631,25 +713,45 @@ void RigPanel::paint (juce::Graphics& g)
     drawBottomStrip (g);
 }
 
+// Room lighting over everything (controls included): soft vignette
+void RigPanel::paintOverChildren (juce::Graphics& g)
+{
+    juce::ColourGradient vignette (juce::Colours::transparentBlack, (float) designWidth * 0.5f, (float) designHeight * 0.42f,
+                                   juce::Colours::black.withAlpha (0.38f), 0.0f, (float) designHeight * 1.05f, true);
+    vignette.addColour (0.55, juce::Colours::transparentBlack);
+    g.setGradientFill (vignette);
+    g.fillRect (getLocalBounds().withTrimmedTop (titleBar.getBottom()));
+}
+
 //------------------------------------------------------------------------------
 void RigPanel::drawPedal (juce::Graphics& g, juce::Rectangle<float> r, juce::Colour top, juce::Colour bottom) const
 {
-    // Shadow
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.fillRoundedRectangle (r.translated (3.0f, 5.0f), 12.0f);
+    constexpr float corner = 12.0f;
 
-    // Enclosure
-    juce::ColourGradient body (top, r.getTopLeft(), bottom, r.getBottomRight(), false);
+    // Die-cast enclosure: rounded edges catch the light, flat top is lit from above
+    juce::ColourGradient body (top.brighter (0.12f), r.getX(), r.getY(), bottom, r.getX() + r.getWidth() * 0.3f, r.getBottom(), false);
+    body.addColour (0.55, top.interpolatedWith (bottom, 0.5f));
     g.setGradientFill (body);
-    g.fillRoundedRectangle (r, 12.0f);
+    g.fillRoundedRectangle (r, corner);
 
-    // Bevel
-    g.setColour (juce::Colours::white.withAlpha (0.18f));
-    g.drawRoundedRectangle (r.reduced (1.5f), 11.0f, 1.5f);
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
-    g.drawRoundedRectangle (r, 12.0f, 1.5f);
+    // Metallic flake / powder coat
+    fillTextured (g, r, corner, flakes);
 
-    // Corner screws
+    // Broad soft reflection on the top-left
+    juce::ColourGradient glow (juce::Colours::white.withAlpha (0.16f), r.getX() + r.getWidth() * 0.25f, r.getY() + r.getHeight() * 0.1f,
+                               juce::Colours::transparentWhite, r.getX() + r.getWidth() * 0.9f, r.getY() + r.getHeight() * 0.8f, true);
+    g.setGradientFill (glow);
+    g.fillRoundedRectangle (r, corner);
+
+    // Rounded die-cast edge: bright rim on top, dark rim at the bottom
+    realism::bevel (g, r, corner, 5.0f, 0.38f, 0.55f);
+    realism::bevel (g, r.reduced (5.0f), corner - 5.0f, 1.5f, 0.0f, 0.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.25f));
+    g.drawRoundedRectangle (r.reduced (5.0f), corner - 5.0f, 1.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.8f));
+    g.drawRoundedRectangle (r.reduced (0.5f), corner, 1.0f);
+
+    // Bottom-plate screws
     for (auto p : { r.getTopLeft().translated (13, 13), r.getTopRight().translated (-13, 13),
                     r.getBottomLeft().translated (13, -13), r.getBottomRight().translated (-13, -13) })
         drawScrew (g, p, 5.0f);
@@ -657,30 +759,57 @@ void RigPanel::drawPedal (juce::Graphics& g, juce::Rectangle<float> r, juce::Col
 
 void RigPanel::drawScrew (juce::Graphics& g, juce::Point<float> c, float radius) const
 {
-    juce::ColourGradient head (juce::Colour (0xffe8eaed), c.translated (-radius, -radius),
-                               juce::Colour (0xff5b5f66), c.translated (radius, radius), false);
+    realism::softShadowEllipse (g, c, radius, radius * 0.5f, { 0.6f, 1.4f }, 0.35f);
+
+    juce::ColourGradient head (juce::Colour (0xfff2f3f5), c.translated (-radius, -radius),
+                               juce::Colour (0xff4e5258), c.translated (radius * 0.8f, radius), false);
     g.setGradientFill (head);
     g.fillEllipse (juce::Rectangle<float> (radius * 2.0f, radius * 2.0f).withCentre (c));
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.drawLine (c.x - radius * 0.65f, c.y, c.x + radius * 0.65f, c.y, 1.2f);
-    g.drawLine (c.x, c.y - radius * 0.65f, c.x, c.y + radius * 0.65f, 1.2f);
+    g.setColour (juce::Colours::black.withAlpha (0.55f));
+    g.drawEllipse (juce::Rectangle<float> (radius * 2.0f, radius * 2.0f).withCentre (c), 0.6f);
+
+    // Phillips recess: dark cut with a lit lower edge
+    for (auto offs : { juce::Point<float> (0.0f, 0.0f), juce::Point<float> (0.5f, 0.6f) })
+    {
+        g.setColour (offs.x == 0.0f ? juce::Colours::black.withAlpha (0.7f) : juce::Colours::white.withAlpha (0.35f));
+        const auto cc = c + offs;
+        g.drawLine (cc.x - radius * 0.6f, cc.y, cc.x + radius * 0.6f, cc.y, offs.x == 0.0f ? 1.3f : 0.5f);
+        g.drawLine (cc.x, cc.y - radius * 0.6f, cc.x, cc.y + radius * 0.6f, offs.x == 0.0f ? 1.3f : 0.5f);
+    }
 }
 
 void RigPanel::drawLed (juce::Graphics& g, juce::Rectangle<int> area, bool on, juce::Colour colour) const
 {
     const auto r = area.toFloat();
+    const auto c = r.getCentre();
+    const float rad = r.getWidth() * 0.5f;
+
+    // Light spill on the panel
     if (on)
     {
-        g.setColour (colour.withAlpha (0.35f));
-        g.fillEllipse (r.expanded (5.0f));
+        juce::ColourGradient spill (colour.withAlpha (0.55f), c, colour.withAlpha (0.0f), c.translated (rad * 4.0f, 0.0f), true);
+        g.setGradientFill (spill);
+        g.fillEllipse (r.expanded (rad * 3.0f));
     }
 
-    juce::ColourGradient lens (on ? colour.brighter (0.6f) : colour.darker (2.5f), r.getCentre().translated (-1.5f, -1.5f),
-                               on ? colour : colour.darker (3.5f), r.getBottomRight(), true);
+    // Chrome bezel
+    const auto bez = r.expanded (rad * 0.45f);
+    g.setGradientFill (realism::chrome (bez));
+    g.fillEllipse (bez);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawEllipse (bez, 0.7f);
+
+    // Lens: hot core when lit, deep tinted plastic when off
+    juce::ColourGradient lens (on ? colour.brighter (0.9f) : colour.darker (2.2f), c.translated (-rad * 0.2f, -rad * 0.2f),
+                               on ? colour.darker (0.2f) : colour.darker (4.0f), c.translated (rad, rad), true);
     g.setGradientFill (lens);
     g.fillEllipse (r);
-    g.setColour (juce::Colours::black.withAlpha (0.7f));
-    g.drawEllipse (r, 1.0f);
+    if (on)
+    {
+        g.setColour (juce::Colours::white.withAlpha (0.8f));
+        g.fillEllipse (juce::Rectangle<float> (rad * 0.7f, rad * 0.7f).withCentre (c));
+    }
+    realism::specular (g, c, rad, on ? 0.7f : 0.45f);
 }
 
 //------------------------------------------------------------------------------
@@ -688,39 +817,86 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
 {
     const auto a = ampArea.toFloat();
 
-    // Leather handle on top
-    const auto handle = juce::Rectangle<float> (240.0f, 16.0f).withCentre ({ a.getCentreX(), a.getY() + 6.0f });
-    g.setColour (juce::Colour (0xff0d0d0e));
-    g.fillRoundedRectangle (handle, 6.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.1f));
-    g.drawRoundedRectangle (handle, 6.0f, 1.0f);
+    // Leather strap handle with chrome end brackets
+    {
+        const auto strap = juce::Rectangle<float> (230.0f, 15.0f).withCentre ({ a.getCentreX(), a.getY() + 7.0f });
+        juce::ColourGradient leather (juce::Colour (0xff3a3532), strap.getX(), strap.getY(),
+                                      juce::Colour (0xff0a0909), strap.getX(), strap.getBottom(), false);
+        g.setGradientFill (leather);
+        g.fillRoundedRectangle (strap, 7.0f);
+        fillTextured (g, strap, 7.0f, tolex, 0.5f);
+        g.setColour (juce::Colour (0x55d8cfc0));
+        const float dashes[] = { 3.0f, 3.0f };
+        g.drawDashedLine (juce::Line<float> (strap.getX() + 12.0f, strap.getY() + 3.5f, strap.getRight() - 12.0f, strap.getY() + 3.5f), dashes, 2, 0.8f);
+        g.drawDashedLine (juce::Line<float> (strap.getX() + 12.0f, strap.getBottom() - 3.5f, strap.getRight() - 12.0f, strap.getBottom() - 3.5f), dashes, 2, 0.8f);
+        for (float x : { strap.getX() - 14.0f, strap.getRight() - 4.0f })
+        {
+            const auto bracket = juce::Rectangle<float> (x, strap.getY() - 1.0f, 18.0f, 18.0f);
+            g.setGradientFill (realism::chrome (bracket));
+            g.fillRoundedRectangle (bracket, 4.0f);
+            g.setColour (juce::Colours::black.withAlpha (0.6f));
+            g.drawRoundedRectangle (bracket, 4.0f, 0.8f);
+        }
+    }
 
     // Tolex-covered head
     const auto cab = a.withTrimmedTop (14.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.fillRoundedRectangle (cab.translated (3.0f, 5.0f), 10.0f);
-    g.setFillType (juce::FillType (tolex, juce::AffineTransform()));
+    fillTextured (g, cab, 10.0f, tolex);
+    juce::ColourGradient light (juce::Colours::white.withAlpha (0.07f), cab.getX(), cab.getY(),
+                                juce::Colours::black.withAlpha (0.25f), cab.getX(), cab.getBottom(), false);
+    g.setGradientFill (light);
     g.fillRoundedRectangle (cab, 10.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.12f));
-    g.drawRoundedRectangle (cab.reduced (1.0f), 10.0f, 1.2f);
+    realism::bevel (g, cab, 10.0f, 4.0f, 0.22f, 0.6f);
 
-    // Metal corners
-    g.setColour (juce::Colour (0xff8f8b80));
-    for (auto p : { cab.getTopLeft(), cab.getTopRight().translated (-18, 0), cab.getBottomLeft().translated (0, -18),
-                    cab.getBottomRight().translated (-18, -18) })
-        g.fillRoundedRectangle (juce::Rectangle<float> (p.x, p.y, 18.0f, 18.0f), 4.0f);
+    // Chrome corner protectors with rivets
+    for (int i = 0; i < 4; ++i)
+    {
+        const bool right = (i & 1) != 0, bottom = (i & 2) != 0;
+        constexpr float len = 30.0f;
 
-    // --- Control panel (black panel with silver trim) ---
+        // Curved-triangle cap for the top-left corner, mirrored for the others
+        juce::Path capShape;
+        capShape.startNewSubPath (0.0f, len);
+        capShape.lineTo (0.0f, 10.0f);
+        capShape.quadraticTo (0.0f, 0.0f, 10.0f, 0.0f);
+        capShape.lineTo (len, 0.0f);
+        capShape.quadraticTo (len * 0.42f, len * 0.42f, 0.0f, len);
+        capShape.closeSubPath();
+
+        const auto t = juce::AffineTransform::scale (right ? -1.0f : 1.0f, bottom ? -1.0f : 1.0f)
+                           .translated (right ? cab.getRight() : cab.getX(), bottom ? cab.getBottom() : cab.getY());
+        capShape.applyTransform (t);
+        const auto cb = capShape.getBounds();
+
+        g.setColour (juce::Colours::black.withAlpha (0.45f));
+        g.fillPath (capShape, juce::AffineTransform::translation (1.0f, 2.5f));
+        juce::ColourGradient metal (juce::Colour (0xfff4f5f7), cb.getX(), cb.getY(),
+                                    juce::Colour (0xff5d6168), cb.getRight(), cb.getBottom(), false);
+        metal.addColour (0.45, juce::Colour (0xffc4c8ce));
+        metal.addColour (0.55, juce::Colour (0xff7d8188));
+        g.setGradientFill (metal);
+        g.fillPath (capShape);
+        g.setColour (juce::Colours::black.withAlpha (0.55f));
+        g.strokePath (capShape, juce::PathStrokeType (0.8f));
+
+        const auto rivet = juce::Point<float> (right ? cab.getRight() - 8.0f : cab.getX() + 8.0f,
+                                               bottom ? cab.getBottom() - 8.0f : cab.getY() + 8.0f);
+        drawScrew (g, rivet, 2.6f);
+    }
+
+    // --- Control panel (black panel with chrome trim, slightly recessed) ---
     const auto panel = ampPanelArea.toFloat();
-    juce::ColourGradient face (juce::Colour (0xff1c1c1f), panel.getTopLeft(), juce::Colour (0xff070708), panel.getBottomLeft(), false);
+    juce::ColourGradient face (juce::Colour (0xff202024), panel.getTopLeft(), juce::Colour (0xff060607), panel.getBottomLeft(), false);
     g.setGradientFill (face);
     g.fillRect (panel);
-    g.setColour (juce::Colour (0xffb9b4a6));
-    g.drawRect (panel, 2.0f);
-    g.setColour (juce::Colour (0xffb9b4a6).withAlpha (0.4f));
-    g.drawRect (panel.reduced (5.0f), 1.0f);
+    realism::sheen (g, panel, 0.0f, 0.05f);
+    realism::innerShadow (g, panel, 0.0f, 8.0f, 0.9f);
+    g.setGradientFill (realism::chrome (panel));
+    g.drawRect (panel, 2.5f);
+    g.setColour (juce::Colour (0xffb9b4a6).withAlpha (0.35f));
+    g.drawRect (panel.reduced (6.0f), 1.0f);
 
-    // Channel label + input jacks
+    // Channel label + input jacks (hex nut, chrome ring, dark socket)
     g.setColour (LnF::cream);
     g.setFont (LnF::condensed (18.0f));
     g.drawText ("NAM", juce::Rectangle<float> (panel.getX() + 22.0f, panel.getY() + 12.0f, 100.0f, 18.0f),
@@ -728,11 +904,13 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     for (int j = 0; j < 2; ++j)
     {
         const auto jc = juce::Point<float> (panel.getX() + 36.0f + (float) j * 46.0f, panel.getY() + 56.0f);
-        juce::ColourGradient nut (juce::Colour (0xffd8dade), jc.translated (-9, -9), juce::Colour (0xff4e5157), jc.translated (9, 9), false);
-        g.setGradientFill (nut);
-        g.fillEllipse (juce::Rectangle<float> (22.0f, 22.0f).withCentre (jc));
-        g.setColour (juce::Colours::black);
-        g.fillEllipse (juce::Rectangle<float> (10.0f, 10.0f).withCentre (jc));
+        realism::softShadowEllipse (g, jc, 11.0f, 4.0f, { 1.0f, 2.0f }, 0.4f);
+        realism::spunMetal (g, jc, 12.0f, juce::Colour (0xffa9adb3), 55.0f);
+        g.setColour (juce::Colours::black.withAlpha (0.6f));
+        g.drawEllipse (juce::Rectangle<float> (24.0f, 24.0f).withCentre (jc), 0.8f);
+        juce::ColourGradient hole (juce::Colour (0xff000000), jc.translated (0, -3), juce::Colour (0xff2a2a2e), jc.translated (0, 5), false);
+        g.setGradientFill (hole);
+        g.fillEllipse (juce::Rectangle<float> (11.0f, 11.0f).withCentre (jc));
     }
     g.setColour (LnF::cream.withAlpha (0.8f));
     g.setFont (LnF::condensed (11.0f));
@@ -741,10 +919,10 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
 
     // Divider before the logo plate
     const float logoX = panel.getX() + 190.0f + 4.0f * 96.0f + 60.0f;
-    g.setColour (juce::Colour (0xffb9b4a6).withAlpha (0.5f));
+    g.setColour (juce::Colour (0xffb9b4a6).withAlpha (0.45f));
     g.drawVerticalLine ((int) logoX, panel.getY() + 8.0f, panel.getBottom() - 8.0f);
 
-    // Script logo + model plate
+    // Panel logo (silk-screened) + model line
     g.setColour (LnF::cream);
     LnF::drawSlantedLogo (g, "JEMINI", juce::Rectangle<float> (logoX + 22.0f, panel.getY() + 14.0f, 220.0f, 46.0f),
                           34.0f, juce::Justification::centredLeft);
@@ -752,44 +930,85 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.drawText ("BLACK PANEL  '65", juce::Rectangle<float> (logoX + 30.0f, panel.getY() + 64.0f, 200.0f, 18.0f),
                 juce::Justification::centredLeft, false);
 
-    // Red jewel pilot light: lit when the amp is active (model loaded, not bypassed)
+    // Jewel pilot light: faceted red glass in a chrome bezel
     const bool ampLive = audioProcessor.getNamAmp().hasModel() && ! ampBypass.getToggleState();
     const auto jewel = jewelArea.toFloat();
+    const auto jc = jewel.getCentre();
+    const float jr = jewel.getWidth() * 0.5f;
     if (ampLive)
     {
-        g.setColour (LnF::redLed.withAlpha (0.35f));
-        g.fillEllipse (jewel.expanded (8.0f));
+        juce::ColourGradient spill (LnF::redLed.withAlpha (0.6f), jc, LnF::redLed.withAlpha (0.0f), jc.translated (jr * 3.2f, 0.0f), true);
+        g.setGradientFill (spill);
+        g.fillEllipse (jewel.expanded (jr * 2.2f));
     }
-    juce::ColourGradient glass (ampLive ? juce::Colour (0xffffb0a0) : juce::Colour (0xff6a1a14), jewel.getCentre().translated (-4, -5),
-                                ampLive ? juce::Colour (0xffd01a10) : juce::Colour (0xff2a0806), jewel.getBottomRight(), true);
+    realism::softShadowEllipse (g, jc, jr + 4.0f, 5.0f, { 1.0f, 3.0f }, 0.45f);
+    realism::spunMetal (g, jc, jr + 5.0f, juce::Colour (0xffb4b8be), 60.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.7f));
+    g.drawEllipse (jewel.expanded (5.0f), 0.8f);
+    g.drawEllipse (jewel.expanded (0.5f), 1.2f);
+
+    juce::ColourGradient glass (ampLive ? juce::Colour (0xffffc0a8) : juce::Colour (0xff7a1d16), jc.translated (-jr * 0.25f, -jr * 0.3f),
+                                ampLive ? juce::Colour (0xffb01208) : juce::Colour (0xff250604), jc.translated (jr, jr), true);
     g.setGradientFill (glass);
     g.fillEllipse (jewel);
-    g.setColour (juce::Colour (0xffc9ccd1));
-    g.drawEllipse (jewel.expanded (2.0f), 3.0f);
+    {
+        // Facets: alternating light / dark triangles radiating from the centre
+        juce::Graphics::ScopedSaveState s (g);
+        juce::Path clip;
+        clip.addEllipse (jewel);
+        g.reduceClipRegion (clip);
+        for (int i = 0; i < 12; ++i)
+        {
+            juce::Path facet;
+            const float a0 = (float) i / 12.0f * juce::MathConstants<float>::twoPi;
+            facet.addPieSegment (jewel.reduced (jr * 0.25f), a0, a0 + juce::MathConstants<float>::twoPi / 12.0f, 0.0f);
+            g.setColour ((i % 2 == 0 ? juce::Colours::white : juce::Colours::black).withAlpha (ampLive ? 0.08f : 0.11f));
+            g.fillPath (facet);
+        }
+        g.setColour (juce::Colours::black.withAlpha (0.25f));
+        g.drawEllipse (jewel.reduced (jr * 0.25f), 0.8f);
+    }
+    realism::specular (g, jc, jr, 0.75f);
 
-    // --- Grille cloth ---
+    // --- Grille cloth behind white piping ---
     const auto grille = ampGrilleArea.toFloat();
     g.drawImage (ampGrille, grille, juce::RectanglePlacement::stretchToFit);
-    g.setColour (juce::Colours::black.withAlpha (0.7f));
-    g.drawRect (grille, 2.0f);
+    realism::innerShadow (g, grille, 0.0f, 10.0f, 1.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawRect (grille.expanded (3.0f), 1.0f);
+    juce::ColourGradient piping (juce::Colour (0xfff3ecdc), grille.getX(), grille.getY(),
+                                 juce::Colour (0xff9e9584), grille.getX(), grille.getBottom(), false);
+    g.setGradientFill (piping);
+    g.drawRect (grille.expanded (2.0f), 2.0f);
 
-    // Chrome script logo on the grille
+    // Chrome logo on the grille: cast shadow, dark edge, then a chrome fill
     const auto logoArea = juce::Rectangle<float> (grille.getX() + 30.0f, grille.getY() + 18.0f, 300.0f, 80.0f);
-    g.setColour (juce::Colours::black.withAlpha (0.55f));
-    LnF::drawSlantedLogo (g, "JEMINI", logoArea.translated (3.0f, 4.0f), 52.0f, juce::Justification::centredLeft);
-    g.setColour (juce::Colour (0xffe6e8eb));
+    for (int i = 4; i >= 1; --i)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.16f));
+        LnF::drawSlantedLogo (g, "JEMINI", logoArea.translated (1.0f + (float) i, 2.0f + (float) i * 1.4f), 52.0f, juce::Justification::centredLeft);
+    }
+    g.setColour (juce::Colour (0xff2a2c30));
+    LnF::drawSlantedLogo (g, "JEMINI", logoArea.translated (0.8f, 1.2f), 52.0f, juce::Justification::centredLeft);
+    g.setGradientFill (realism::chrome (logoArea.reduced (0.0f, 18.0f)));
     LnF::drawSlantedLogo (g, "JEMINI", logoArea, 52.0f, juce::Justification::centredLeft);
 
-    // Model tag (cream label plate)
+    // Model tag: cream paper label riveted to the grille
+    drawMountedShadows (g, ampArea);
     const auto tag = modelTagArea.toFloat();
-    g.setColour (juce::Colours::black.withAlpha (0.5f));
-    g.fillRoundedRectangle (tag.translated (2.0f, 3.0f), 6.0f);
-    g.setColour (juce::Colour (0xffe8dcc0));
+    juce::ColourGradient card (juce::Colour (0xfff0e6cc), tag.getX(), tag.getY(), juce::Colour (0xffd9caa6), tag.getX(), tag.getBottom(), false);
+    g.setGradientFill (card);
     g.fillRoundedRectangle (tag, 6.0f);
+    fillTextured (g, tag, 6.0f, paper);
+    realism::bevel (g, tag, 6.0f, 1.5f, 0.6f, 0.35f);
     g.setColour (juce::Colour (0xff6f6450));
-    g.drawRoundedRectangle (tag.reduced (1.0f), 6.0f, 1.0f);
+    g.drawRoundedRectangle (tag.reduced (0.5f), 6.0f, 1.0f);
+    const auto well = tag.withTrimmedTop (34.0f).reduced (4.0f);
     g.setColour (juce::Colour (0xff1c1c1f));
-    g.fillRoundedRectangle (tag.withTrimmedTop (34.0f).reduced (4.0f), 4.0f);
+    g.fillRoundedRectangle (well, 4.0f);
+    realism::innerShadow (g, well, 4.0f, 5.0f, 0.9f);
+    for (auto p : { tag.getTopLeft().translated (9, 9), tag.getTopRight().translated (-9, 9) })
+        drawScrew (g, p, 3.0f);
 }
 
 //------------------------------------------------------------------------------
@@ -797,52 +1016,86 @@ void RigPanel::drawRack (juce::Graphics& g) const
 {
     const auto a = rackArea.toFloat();
 
-    // Ears + face
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.fillRoundedRectangle (a.translated (3.0f, 5.0f), 4.0f);
-
-    juce::ColourGradient ears (juce::Colour (0xff3b3e45), a.getTopLeft(), juce::Colour (0xff1a1c20), a.getBottomLeft(), false);
-    g.setGradientFill (ears);
+    // Rack ears: brushed aluminium with oval mounting slots
+    fillTextured (g, a, 4.0f, brushedAlu);
+    juce::ColourGradient earLight (juce::Colours::white.withAlpha (0.18f), a.getX(), a.getY(),
+                                   juce::Colours::black.withAlpha (0.35f), a.getX(), a.getBottom(), false);
+    g.setGradientFill (earLight);
     g.fillRoundedRectangle (a, 4.0f);
-
-    const auto face = a.reduced (24.0f, 4.0f);
-    juce::ColourGradient brushed (rackFace.brighter (0.15f), face.getTopLeft(), rackFace.darker (0.3f), face.getBottomLeft(), false);
-    g.setGradientFill (brushed);
-    g.fillRect (face);
-    g.setColour (juce::Colours::white.withAlpha (0.08f));
-    for (float y = face.getY(); y < face.getBottom(); y += 3.0f)
-        g.drawHorizontalLine ((int) y, face.getX(), face.getRight());
+    realism::bevel (g, a, 4.0f, 2.0f, 0.5f, 0.6f);
 
     for (auto x : { a.getX() + 12.0f, a.getRight() - 12.0f })
         for (auto y : { a.getY() + 24.0f, a.getBottom() - 24.0f })
-            drawScrew (g, { x, y }, 6.0f);
+        {
+            const auto slot = juce::Rectangle<float> (14.0f, 22.0f).withCentre ({ x, y });
+            g.setColour (juce::Colour (0xff050506));
+            g.fillRoundedRectangle (slot, 7.0f);
+            realism::bevel (g, slot, 7.0f, 1.2f, 0.0f, 0.0f);
+            g.setColour (juce::Colours::white.withAlpha (0.25f));
+            g.drawRoundedRectangle (slot.translated (0.0f, 0.8f), 7.0f, 0.7f);
+            drawScrew (g, { x, y + 2.0f }, 5.5f);
+        }
+
+    // Anodised, brushed front panel
+    const auto face = a.reduced (24.0f, 4.0f);
+    fillTextured (g, face, 0.0f, brushedRack);
+    juce::ColourGradient faceLight (juce::Colours::white.withAlpha (0.06f), face.getX(), face.getY(),
+                                    juce::Colours::black.withAlpha (0.30f), face.getX(), face.getBottom(), false);
+    g.setGradientFill (faceLight);
+    g.fillRect (face);
+    realism::bevel (g, face, 0.0f, 2.0f, 0.3f, 0.7f);
+    g.setColour (juce::Colours::black.withAlpha (0.8f));
+    g.drawRect (face.expanded (0.5f), 1.0f);
 
     // Logo block
     const auto logo = juce::Rectangle<float> (face.getX() + 16.0f, face.getY() + 16.0f, 160.0f, 120.0f);
-    g.setColour (juce::Colours::white);
+    g.setColour (juce::Colours::black.withAlpha (0.5f));
     g.setFont (LnF::condensed (40.0f));
+    g.drawText ("JGR-41", logo.withHeight (48.0f).translated (0.0f, 1.5f), juce::Justification::centredLeft, false);
+    g.setColour (juce::Colour (0xfff4f5f7));
     g.drawText ("JGR-41", logo.withHeight (48.0f), juce::Justification::centredLeft, false);
     g.setColour (LnF::blueLed);
     g.setFont (LnF::condensed (16.0f));
     g.drawText ("DIGITAL DELAY",  logo.withTrimmedTop (52.0f).withHeight (18.0f), juce::Justification::centredLeft, false);
     g.drawText ("REVERB PROCESSOR", logo.withTrimmedTop (70.0f).withHeight (18.0f), juce::Justification::centredLeft, false);
 
-    // Display window (red text on black glass)
+    // Display: recessed bezel, smoked red glass, glowing segments, reflection
     const auto disp = rackDisplayArea.toFloat();
-    g.setColour (juce::Colour (0xff050505));
-    g.fillRoundedRectangle (disp, 4.0f);
-    g.setColour (juce::Colours::black);
-    g.drawRoundedRectangle (disp.expanded (2.0f), 5.0f, 3.0f);
-    juce::ColourGradient glass (juce::Colour (0xff1a0806), disp.getTopLeft(), juce::Colour (0xff070202), disp.getBottomLeft(), false);
-    g.setGradientFill (glass);
-    g.fillRoundedRectangle (disp.reduced (6.0f), 2.0f);
+    g.setColour (juce::Colour (0xff050506));
+    g.fillRoundedRectangle (disp.expanded (3.0f), 6.0f);
+    realism::bevel (g, disp.expanded (3.0f), 6.0f, 2.0f, 0.0f, 0.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.18f));
+    g.drawRoundedRectangle (disp.expanded (3.0f).translated (0.0f, 1.0f), 6.0f, 0.8f);
+
+    const auto glassArea = disp.reduced (6.0f);
+    juce::ColourGradient smoke (juce::Colour (0xff240a07), glassArea.getX(), glassArea.getY(),
+                                juce::Colour (0xff0a0302), glassArea.getX(), glassArea.getBottom(), false);
+    g.setGradientFill (smoke);
+    g.fillRoundedRectangle (glassArea, 2.0f);
 
     const auto text = getDisplayText();
-    g.setColour (displayRed.withAlpha (0.25f));
+    const auto textArea = disp.reduced (14.0f, 8.0f);
     g.setFont (LnF::display (26.0f));
-    g.drawText (text, disp.reduced (14.0f, 8.0f).translated (0.0f, 1.0f), juce::Justification::centredLeft, true);
-    g.setColour (displayRed);
-    g.drawText (text, disp.reduced (14.0f, 8.0f), juce::Justification::centredLeft, true);
+    g.setColour (displayRed.withAlpha (0.06f));            // unlit segments
+    g.drawText ("8888888888888", textArea, juce::Justification::centredLeft, true);
+    for (auto [dx, dy, al] : { std::tuple { -1.5f, 0.0f, 0.18f }, std::tuple { 1.5f, 0.0f, 0.18f },
+                               std::tuple { 0.0f, -1.5f, 0.18f }, std::tuple { 0.0f, 1.5f, 0.18f } })
+    {
+        g.setColour (displayRed.withAlpha (al));            // bloom
+        g.drawText (text, textArea.translated (dx, dy), juce::Justification::centredLeft, true);
+    }
+    g.setColour (displayRed.brighter (0.25f));
+    g.drawText (text, textArea, juce::Justification::centredLeft, true);
+
+    {
+        juce::Graphics::ScopedSaveState s (g);                // faint scan lines
+        g.reduceClipRegion (glassArea.toNearestInt());
+        g.setColour (juce::Colours::black.withAlpha (0.18f));
+        for (float y = glassArea.getY(); y < glassArea.getBottom(); y += 2.0f)
+            g.drawHorizontalLine ((int) y, glassArea.getX(), glassArea.getRight());
+    }
+    realism::innerShadow (g, glassArea, 2.0f, 6.0f, 0.9f);
+    realism::sheen (g, glassArea, 2.0f, 0.10f);
 
     // Effect list LEDs (lit = effect ON)
     const std::array<bool, 3> states { dlyOn.getToggleState(), revOn.getToggleState(), irvOn.getToggleState() };
@@ -850,31 +1103,43 @@ void RigPanel::drawRack (juce::Graphics& g) const
         drawLed (g, rackLedAreas[i], states[i], LnF::redLed);
 
     // Selected-page marker
-    g.setColour (LnF::blueLed);
     const auto sel = rackSelect[(size_t) rackPage].getBounds().toFloat();
-    g.fillRect (sel.getRight() + 2.0f, sel.getCentreY() - 6.0f, 3.0f, 12.0f);
+    const auto marker = juce::Rectangle<float> (sel.getRight() + 2.0f, sel.getCentreY() - 6.0f, 3.0f, 12.0f);
+    g.setColour (LnF::blueLed.withAlpha (0.3f));
+    g.fillRoundedRectangle (marker.expanded (2.5f), 3.0f);
+    g.setColour (LnF::blueLed);
+    g.fillRect (marker);
 
-    // Divider
-    g.setColour (juce::Colours::white.withAlpha (0.15f));
-    g.drawVerticalLine (rackControlsArea.getX() - 8, face.getY() + 10.0f, face.getBottom() - 26.0f);
+    // Engraved divider
+    const int dx = rackControlsArea.getX() - 8;
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawVerticalLine (dx, face.getY() + 10.0f, face.getBottom() - 26.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.10f));
+    g.drawVerticalLine (dx + 1, face.getY() + 10.0f, face.getBottom() - 26.0f);
 
-    // Blue stripe
-    g.setColour (rackBlue);
-    g.fillRect (juce::Rectangle<float> (disp.getX(), face.getBottom() - 18.0f, face.getRight() - disp.getX() - 10.0f, 9.0f));
+    // Blue stripe (printed, slight gloss)
+    const auto stripe = juce::Rectangle<float> (disp.getX(), face.getBottom() - 18.0f, face.getRight() - disp.getX() - 10.0f, 9.0f);
+    juce::ColourGradient blue (rackBlue.brighter (0.35f), stripe.getX(), stripe.getY(), rackBlue.darker (0.3f), stripe.getX(), stripe.getBottom(), false);
+    g.setGradientFill (blue);
+    g.fillRect (stripe);
 }
 
 //------------------------------------------------------------------------------
 void RigPanel::drawSubPanel (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title) const
 {
     const auto f = r.toFloat();
-    juce::ColourGradient face (juce::Colour (0xff222226), f.getTopLeft(), juce::Colour (0xff101012), f.getBottomLeft(), false);
-    g.setGradientFill (face);
+    fillTextured (g, f, 6.0f, brushedDark);
+    juce::ColourGradient light (juce::Colours::white.withAlpha (0.05f), f.getX(), f.getY(),
+                                juce::Colours::black.withAlpha (0.35f), f.getX(), f.getBottom(), false);
+    g.setGradientFill (light);
     g.fillRoundedRectangle (f, 6.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.14f));
-    g.drawRoundedRectangle (f.reduced (0.5f), 6.0f, 1.0f);
+    realism::bevel (g, f, 6.0f, 2.0f, 0.28f, 0.7f);
 
-    g.setColour (LnF::cream);
+    // Title in an engraved strip
+    g.setColour (juce::Colours::black.withAlpha (0.5f));
     g.setFont (LnF::condensed (19.0f));
+    g.drawText (title, r.withHeight (30).translated (0, 1), juce::Justification::centred, false);
+    g.setColour (LnF::cream);
     g.drawText (title, r.withHeight (30), juce::Justification::centred, false);
 }
 
@@ -882,18 +1147,18 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
 {
     const auto a = bottomArea.toFloat();
 
-    g.setColour (juce::Colours::black.withAlpha (0.6f));
-    g.fillRoundedRectangle (a.translated (3.0f, 5.0f), 8.0f);
-    g.setFillType (juce::FillType (tolex, juce::AffineTransform()));
+    fillTextured (g, a, 8.0f, tolex);
+    juce::ColourGradient light (juce::Colours::white.withAlpha (0.06f), a.getX(), a.getY(),
+                                juce::Colours::black.withAlpha (0.25f), a.getX(), a.getBottom(), false);
+    g.setGradientFill (light);
     g.fillRoundedRectangle (a, 8.0f);
-    g.setColour (juce::Colours::white.withAlpha (0.12f));
-    g.drawRoundedRectangle (a.reduced (1.0f), 8.0f, 1.2f);
+    realism::bevel (g, a, 8.0f, 4.0f, 0.22f, 0.6f);
 
     for (auto p : { a.getTopLeft().translated (10, 10), a.getTopRight().translated (-10, 10),
                     a.getBottomLeft().translated (10, -10), a.getBottomRight().translated (-10, -10) })
         drawScrew (g, p, 5.0f);
 
-    // Cabinet grille + title plate
+    // Cabinet grille (recessed, with piping)
     const auto grille = cabGrilleArea.toFloat();
     g.drawImage (cabGrille, grille, juce::RectanglePlacement::stretchToFit);
 
@@ -901,29 +1166,43 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
     for (float cx : { grille.getX() + grille.getWidth() * 0.27f, grille.getX() + grille.getWidth() * 0.73f })
     {
         const auto c = juce::Point<float> (cx, grille.getCentreY() + 6.0f);
-        juce::ColourGradient cone (juce::Colours::black.withAlpha (0.42f), c,
-                                   juce::Colours::black.withAlpha (0.0f), c.translated (0.0f, 74.0f), true);
+        juce::ColourGradient cone (juce::Colours::black.withAlpha (0.45f), c,
+                                   juce::Colours::black.withAlpha (0.0f), c.translated (0.0f, 76.0f), true);
+        cone.addColour (0.8, juce::Colours::black.withAlpha (0.2f));
         g.setGradientFill (cone);
-        g.fillEllipse (juce::Rectangle<float> (150.0f, 150.0f).withCentre (c));
+        g.fillEllipse (juce::Rectangle<float> (152.0f, 152.0f).withCentre (c));
         g.setColour (juce::Colours::black.withAlpha (0.25f));
         g.drawEllipse (juce::Rectangle<float> (40.0f, 40.0f).withCentre (c), 3.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.04f));
+        g.drawEllipse (juce::Rectangle<float> (150.0f, 150.0f).withCentre (c.translated (-1.0f, -1.5f)), 2.0f);
     }
 
-    g.setColour (juce::Colours::black.withAlpha (0.7f));
-    g.drawRect (grille, 2.0f);
+    realism::innerShadow (g, grille, 0.0f, 10.0f, 1.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawRect (grille.expanded (3.0f), 1.0f);
+    juce::ColourGradient piping (juce::Colour (0xfff3ecdc), grille.getX(), grille.getY(),
+                                 juce::Colour (0xff9e9584), grille.getX(), grille.getBottom(), false);
+    g.setGradientFill (piping);
+    g.drawRect (grille.expanded (2.0f), 2.0f);
 
+    drawMountedShadows (g, bottomArea);
+
+    // Title plate: small engraved metal badge
     const auto plate = juce::Rectangle<float> (170.0f, 28.0f).withCentre ({ grille.getCentreX(), grille.getY() + 22.0f });
-    g.setColour (juce::Colour (0xff1c1c1f));
-    g.fillRoundedRectangle (plate, 5.0f);
+    fillTextured (g, plate, 5.0f, brushedDark);
+    realism::bevel (g, plate, 5.0f, 1.5f, 0.35f, 0.6f);
     g.setColour (LnF::cream);
     g.setFont (LnF::condensed (19.0f));
     g.drawText ("CABINET / IR", plate, juce::Justification::centred, false);
 
-    // IR file field
+    // IR file field (dark recessed window)
     const auto file = cabFileArea.toFloat();
-    g.setColour (juce::Colour (0xee101012));
+    g.setColour (juce::Colour (0xf00c0c0e));
     g.fillRoundedRectangle (file, 5.0f);
-    g.setColour (LnF::silver.withAlpha (0.4f));
+    realism::innerShadow (g, file, 5.0f, 6.0f, 0.9f);
+    g.setColour (juce::Colours::white.withAlpha (0.18f));
+    g.drawRoundedRectangle (file.translated (0.0f, 1.0f), 5.0f, 0.8f);
+    g.setColour (juce::Colours::black.withAlpha (0.8f));
     g.drawRoundedRectangle (file, 5.0f, 1.0f);
 
     // Sub-panels
@@ -934,8 +1213,14 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
 
     drawLed (g, gateLedArea, gateLedLit, LnF::redLed);
 
-    // Output meter (green -> yellow -> red segments)
+    // Output meter: segments behind a dark window
     const auto m = meterArea.toFloat();
+    g.setColour (juce::Colour (0xff050506));
+    g.fillRoundedRectangle (m.expanded (3.0f), 3.0f);
+    realism::bevel (g, m.expanded (3.0f), 3.0f, 1.2f, 0.0f, 0.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.15f));
+    g.drawRoundedRectangle (m.expanded (3.0f).translated (0.0f, 1.0f), 3.0f, 0.7f);
+
     constexpr int segments = 14;
     const float segH = m.getHeight() / (float) segments;
     const std::array<float, 2> levels { meterL, meterR };
@@ -952,7 +1237,16 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
             const auto colour = s >= segments - 2 ? juce::Colour (0xffff3020)
                               : s >= segments - 5 ? juce::Colour (0xffffd020)
                                                   : juce::Colour (0xff30e040);
-            g.setColour (s < lit ? colour : colour.darker (3.0f).withAlpha (0.5f));
+            if (s < lit)
+            {
+                g.setColour (colour.withAlpha (0.35f));
+                g.fillRect (seg.expanded (1.5f));
+                g.setColour (colour.brighter (0.2f));
+            }
+            else
+            {
+                g.setColour (colour.darker (3.0f).withAlpha (0.55f));
+            }
             g.fillRect (seg);
         }
     }
