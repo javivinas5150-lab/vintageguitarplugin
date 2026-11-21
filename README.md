@@ -45,3 +45,13 @@ Source/
   PluginProcessor.h/.cpp   audio processing + parameters
   PluginEditor.h/.cpp      GUI
 ```
+
+## Standalone app
+
+The project also builds a standalone Windows app (no DAW needed):
+`Builds/VisualStudio2026/x64/Release/App/JeminiGuitarRig.exe`.
+
+On first launch open **Options → Audio/MIDI Settings**, choose your audio
+interface (ASIO driver if available), enable the input your guitar is on
+(input 1 is used) and untick **Mute audio input** (it is muted by default to
+avoid feedback through speakers — use headphones or an amp/monitor setup).
