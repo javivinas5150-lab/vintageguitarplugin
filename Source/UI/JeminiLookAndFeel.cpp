@@ -1,10 +1,10 @@
 #include "JeminiLookAndFeel.h"
 #include "Realism.h"
 
-const juce::Colour JeminiLookAndFeel::cream      (0xfff2ead3);
+const juce::Colour JeminiLookAndFeel::cream      (0xfffbf8f0);
 const juce::Colour JeminiLookAndFeel::ink        (0xff2a2010);
 const juce::Colour JeminiLookAndFeel::panelBlack (0xff111113);
-const juce::Colour JeminiLookAndFeel::silver     (0xffdfe2e6);
+const juce::Colour JeminiLookAndFeel::silver     (0xfff3f4f6);
 const juce::Colour JeminiLookAndFeel::blueLed    (0xff57d6ff);
 const juce::Colour JeminiLookAndFeel::redLed     (0xffff3b2a);
 
@@ -487,7 +487,7 @@ void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& but
     if (button.getProperties()["style"].toString() == "rackSelect")
     {
         const bool selected = button.getToggleState();
-        g.setColour (selected ? juce::Colours::white : silver.withAlpha (highlighted ? 0.95f : 0.8f));
+        g.setColour (selected ? juce::Colours::white : juce::Colours::white.withAlpha (highlighted ? 1.0f : 0.85f));
         g.setFont (condensed (15.0f));
         g.drawText (button.getButtonText(), button.getLocalBounds().withTrimmedLeft (2),
                     juce::Justification::centredLeft, false);

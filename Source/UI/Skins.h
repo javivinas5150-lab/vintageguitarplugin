@@ -64,12 +64,12 @@ namespace skins
                 s.grilleShadow = juce::Colour (0xff160e08); s.grilleBacking = juce::Colour (0xff6e5438);
                 s.piping = juce::Colour (0xfff3ecdc);
                 s.panelTop = juce::Colour (0xff202024); s.panelBottom = juce::Colour (0xff060607);
-                s.panelText = juce::Colour (0xffe9dfc6); s.panelTrim = juce::Colour (0xffb9b4a6);
+                s.panelText = juce::Colour (0xfff9f6ee); s.panelTrim = juce::Colour (0xffb9b4a6);
                 s.knobCap = juce::Colour (0xffeedfb8); s.knobNumbers = juce::Colour (0xfff2ece0);
                 s.logo = juce::Colour (0xffe9dfc6);
-                s.vibeTop = juce::Colour (0xff4a3a62); s.vibeBottom = juce::Colour (0xff241a33); s.vibeText = juce::Colour (0xffe9dfc6);
+                s.vibeTop = juce::Colour (0xff4a3a62); s.vibeBottom = juce::Colour (0xff241a33); s.vibeText = juce::Colour (0xfff9f6ee);
                 s.goldTop = juce::Colour (0xffe4c46e); s.goldBottom = juce::Colour (0xffa9822f); s.goldText = juce::Colour (0xff1a1714);
-                s.namTop = juce::Colour (0xff3f4a44); s.namBottom = juce::Colour (0xff1a201d); s.namText = juce::Colour (0xffe9dfc6);
+                s.namTop = juce::Colour (0xff3f4a44); s.namBottom = juce::Colour (0xff1a201d); s.namText = juce::Colour (0xfff9f6ee);
                 s.rackFace = juce::Colour (0xff101114); s.rackAccent = juce::Colour (0xff2ea6ff);
                 s.rackTitle = juce::Colour (0xfff4f5f7); s.display = juce::Colour (0xffff3a2a); s.displayGlass = juce::Colour (0xff240a07);
                 s.subPanel = juce::Colour (0xff1d1d21);
