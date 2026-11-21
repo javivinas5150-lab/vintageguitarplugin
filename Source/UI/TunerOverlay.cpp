@@ -50,6 +50,11 @@ void TunerOverlay::paint (juce::Graphics& g)
     g.drawImageAt (backdrop, 0, 0);
 }
 
+void TunerOverlay::visibilityChanged()
+{
+    unit.setRunning (isVisible());
+}
+
 void TunerOverlay::mouseDown (const juce::MouseEvent& e)
 {
     if (! unit.getBounds().contains (e.getPosition()))
@@ -84,10 +89,18 @@ void TunerOverlay::Unit::resized()
     staticLayer = {};
 }
 
-void TunerOverlay::Unit::visibilityChanged()
+void TunerOverlay::Unit::setRunning (bool shouldRun)
 {
-    if (isShowing()) startTimerHz (60);
-    else             stopTimer();
+    if (shouldRun)
+    {
+        needlePos = -50.0f; needleVel = 0.0f; targetCents = -50.0f;
+        hasSignal = false;
+        startTimerHz (60);
+    }
+    else
+    {
+        stopTimer();
+    }
 }
 
 float TunerOverlay::Unit::needleAngle (float cents) const

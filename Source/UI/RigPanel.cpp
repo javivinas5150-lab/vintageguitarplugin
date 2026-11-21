@@ -277,8 +277,21 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
 
     setupKnob (lowCut,  "cabLowCut",  "LOW CUT",  "pedal", ValueBox::below, 0, "Hz", cream);
     setupKnob (highCut, "cabHighCut", "HIGH CUT", "pedal", ValueBox::below, 0, "Hz", cream);
+    setupKnob (cabLevelKnob, "cabLevel", "LEVEL", "pedal", ValueBox::below, 1, "dB", cream);
+    cabBypass.onStateChange = [this] { repaint (cabLedArea.expanded (10)); };
+
+    for (int i = 0; i < 2; ++i)
+    {
+        auto& b = inputButtons[(size_t) i];
+        b.setButtonText (juce::String (i + 1));
+        b.getProperties().set ("style", "inputSelect");
+        b.setTooltip ("Guitar on input " + juce::String (i + 1) + " of your interface");
+        b.onClick = [this, i] { audioProcessor.setInputChannel (i); };
+        addAndMakeVisible (b);
+    }
 
     setupToggle (gateOn, gateOnAttachment, "gateOn", {}, cream);
+    gateOn.onStateChange = [this] { repaint (gateLedArea.expanded (10)); };
     setupKnob (gateThreshold, "gateThreshold", "THRESHOLD", "pedal", ValueBox::below, 1, "dB", cream);
     setupKnob (gateRelease,   "gateRelease",   "RELEASE",   "pedal", ValueBox::below, 0, "ms", cream);
 
@@ -313,6 +326,9 @@ RigPanel::RigPanel (VintageGuitarSuiteAudioProcessor& p)
     refreshIRVerbInfo();
     updateDriveType();
     syncTuner();
+    shownInput = audioProcessor.getInputChannel();
+    for (int i = 0; i < 2; ++i)
+        inputButtons[(size_t) i].setToggleState (i == shownInput, juce::dontSendNotification);
     startTimerHz (30);
 
     setSize (designWidth, designHeight);
@@ -560,7 +576,10 @@ void RigPanel::refreshCabInfo()
     const auto name = cab.hasIR() ? cab.getIRName() : juce::String ("No IR loaded");
 
     if (cabNameLabel.getText() != name)
+    {
         cabNameLabel.setText (name, juce::dontSendNotification);
+        repaint (cabLedArea.expanded (10));
+    }
 
     clearCabButton.setEnabled (cab.hasIR());
 }
@@ -600,6 +619,43 @@ void RigPanel::timerCallback()
     refreshIRVerbInfo();
 
     syncTuner();
+
+    // Input signal LED (green = signal, red = clipping) and input 1/2 buttons
+    const float inPeak = audioProcessor.takeInputPeak();
+    inputLevel = juce::jmax (inPeak, inputLevel * 0.8f);
+    const bool lit = inputLevel > 0.01f, clip = inputLevel > 0.95f;
+    if (lit != inputLedLit || clip != inputClip)
+    {
+        inputLedLit = lit; inputClip = clip;
+        repaint (inputLedArea.expanded (10));
+    }
+
+    if (const int sel = audioProcessor.getInputChannel(); sel != shownInput)
+    {
+        shownInput = sel;
+        for (int i = 0; i < 2; ++i)
+            inputButtons[(size_t) i].setToggleState (i == sel, juce::dontSendNotification);
+        repaint (ampPanelArea);
+    }
+}
+
+juce::Point<float> RigPanel::jackCentre (int index) const
+{
+    return { (float) ampPanelArea.getX() + 36.0f + (float) index * 46.0f, (float) ampPanelArea.getY() + 56.0f };
+}
+
+void RigPanel::mouseDown (const juce::MouseEvent& e)
+{
+    for (int j = 0; j < 2; ++j)
+        if (e.position.getDistanceFrom (jackCentre (j)) < 15.0f)
+            audioProcessor.setInputChannel (j);
+}
+
+void RigPanel::mouseMove (const juce::MouseEvent& e)
+{
+    const bool overJack = e.position.getDistanceFrom (jackCentre (0)) < 15.0f
+                       || e.position.getDistanceFrom (jackCentre (1)) < 15.0f;
+    setMouseCursor (overJack ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
 }
 
 // Tuner overlay follows the parameter (button, host automation, CLOSE)
@@ -803,8 +859,9 @@ void RigPanel::resized()
     // ---- BOTTOM STRIP ----
     {
         const auto a = bottomArea;
-        cabGrilleArea = { a.getX() + 20, a.getY() + 16, 500, a.getHeight() - 32 };
-        cabFileArea   = juce::Rectangle<int> (420, 34).withCentre ({ cabGrilleArea.getCentreX(), cabGrilleArea.getY() + 62 });
+        cabGrilleArea = { a.getX() + 20, a.getY() + 16, 450, a.getHeight() - 32 };
+        cabFileArea   = juce::Rectangle<int> (400, 34).withCentre ({ cabGrilleArea.getCentreX(), cabGrilleArea.getY() + 62 });
+        cabLedArea    = juce::Rectangle<int> (12, 12).withCentre ({ cabGrilleArea.getCentreX() - 70, cabGrilleArea.getY() + 22 });
 
         auto file = cabFileArea.reduced (6, 4);
         clearCabButton.setBounds (file.removeFromRight (26));
@@ -816,7 +873,7 @@ void RigPanel::resized()
 
         int x = cabGrilleArea.getRight() + 16;
         const int top = a.getY() + 16, h = a.getHeight() - 32;
-        cabToneArea = { x, top, 170, h };  x += 170 + 12;
+        cabToneArea = { x, top, 230, h };  x += 230 + 12;
         gateArea    = { x, top, 230, h };  x += 230 + 12;
         inputArea   = { x, top, 110, h };  x += 110 + 12;
         outputArea  = { x, top, a.getRight() - 16 - x, h };
@@ -828,8 +885,10 @@ void RigPanel::resized()
         };
 
         auto tone = cabToneArea.withTrimmedTop (34).reduced (6, 6);
-        placeKnob (lowCut,  tone.removeFromLeft (tone.getWidth() / 2));
-        placeKnob (highCut, tone);
+        const int third = tone.getWidth() / 3;
+        placeKnob (lowCut,  tone.removeFromLeft (third));
+        placeKnob (highCut, tone.removeFromLeft (third));
+        placeKnob (cabLevelKnob, tone);
 
         auto gate = gateArea.withTrimmedTop (34).reduced (6, 6);
         auto gateHead = juce::Rectangle<int> (gateArea.getX() + 12, gateArea.getY() + 6, 70, 22);
@@ -839,6 +898,9 @@ void RigPanel::resized()
         placeKnob (gateRelease, gate);
 
         placeKnob (input, inputArea.withTrimmedTop (34).reduced (6, 6));
+        inputLedArea = juce::Rectangle<int> (10, 10).withCentre ({ inputArea.getX() + 16, inputArea.getY() + 16 });
+        inputButtons[1].setBounds (inputArea.getRight() - 30, inputArea.getY() + 6, 24, 20);
+        inputButtons[0].setBounds (inputArea.getRight() - 56, inputArea.getY() + 6, 24, 20);
 
         auto out = outputArea.withTrimmedTop (34).reduced (6, 6);
         meterArea = out.removeFromRight (26).withTrimmedTop (20).withTrimmedBottom (20);
@@ -1298,9 +1360,10 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
     g.setFont (LnF::condensed (18.0f));
     g.drawText ("NAM", juce::Rectangle<float> (panel.getX() + 22.0f, panel.getY() + 12.0f, 100.0f, 18.0f),
                 juce::Justification::centredLeft, false);
+    const int selectedInput = audioProcessor.getInputChannel();
     for (int j = 0; j < 2; ++j)
     {
-        const auto jc = juce::Point<float> (panel.getX() + 36.0f + (float) j * 46.0f, panel.getY() + 56.0f);
+        const auto jc = jackCentre (j);
         realism::softShadowEllipse (g, jc, 11.0f, 4.0f, { 1.0f, 2.0f }, 0.4f);
         realism::spunMetal (g, jc, 12.0f, juce::Colour (0xffa9adb3), 55.0f);
         g.setColour (juce::Colours::black.withAlpha (0.6f));
@@ -1309,10 +1372,39 @@ void RigPanel::drawAmpHead (juce::Graphics& g) const
         g.setGradientFill (hole);
         g.fillEllipse (juce::Rectangle<float> (11.0f, 11.0f).withCentre (jc));
     }
-    g.setColour (sk.panelText.withAlpha (0.8f));
+    // Guitar cable plugged into the selected input
+    {
+        const auto jc = jackCentre (selectedInput);
+        juce::Path cable;
+        cable.startNewSubPath (jc.translated (0.0f, 8.0f));
+        cable.cubicTo (jc.translated (0.0f, 22.0f), jc.translated (6.0f, 30.0f), { jc.x + 4.0f, panel.getBottom() - 2.0f });
+        g.setColour (juce::Colours::black.withAlpha (0.35f));
+        g.strokePath (cable, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded),
+                      juce::AffineTransform::translation (3.0f, 3.0f));
+        g.setColour (juce::Colour (0xff0e0e10));
+        g.strokePath (cable, juce::PathStrokeType (6.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+        g.setColour (juce::Colours::white.withAlpha (0.12f));
+        g.strokePath (cable, juce::PathStrokeType (1.2f), juce::AffineTransform::translation (-1.5f, 0.0f));
+
+        realism::softShadowEllipse (g, jc, 10.0f, 5.0f, { 2.0f, 3.0f }, 0.55f);
+        realism::spunMetal (g, jc, 10.0f, juce::Colour (0xffd2d5da), 70.0f);         // chrome sleeve
+        juce::ColourGradient boot (juce::Colour (0xff3a3a3e), jc.translated (-4.0f, -4.0f),
+                                   juce::Colour (0xff050506), jc.translated (5.0f, 5.0f), true);
+        g.setGradientFill (boot);
+        g.fillEllipse (juce::Rectangle<float> (13.0f, 13.0f).withCentre (jc));       // rubber boot
+        g.setColour (juce::Colours::white.withAlpha (0.10f));
+        for (float rr : { 3.0f, 5.0f })
+            g.drawEllipse (juce::Rectangle<float> (rr * 2.0f, rr * 2.0f).withCentre (jc), 0.7f);
+        realism::specular (g, jc, 6.5f, 0.35f);
+    }
+
     g.setFont (LnF::condensed (11.0f));
-    g.drawText ("1        2", juce::Rectangle<float> (panel.getX() + 26.0f, panel.getY() + 72.0f, 80.0f, 14.0f),
-                juce::Justification::centred, false);
+    for (int j = 0; j < 2; ++j)
+    {
+        g.setColour (sk.panelText.withAlpha (j == selectedInput ? 1.0f : 0.5f));
+        g.drawText (juce::String (j + 1), juce::Rectangle<float> (20.0f, 14.0f).withCentre (jackCentre (j).translated (j == 0 ? -17.0f : 17.0f, 16.0f)),
+                    juce::Justification::centred, false);
+    }
 
     // Divider before the logo plate
     const float logoX = panel.getX() + 190.0f + 4.0f * 96.0f + 60.0f;
@@ -1511,6 +1603,16 @@ void RigPanel::drawRack (juce::Graphics& g) const
     g.drawText ("DIGITAL DELAY",  logo.withTrimmedTop (52.0f).withHeight (18.0f), juce::Justification::centredLeft, false);
     g.drawText ("REVERB PROCESSOR", logo.withTrimmedTop (70.0f).withHeight (18.0f), juce::Justification::centredLeft, false);
 
+    // Power LED: lit while any of the rack effects is switched on
+    {
+        const bool rackOn = dlyOn.getToggleState() || revOn.getToggleState() || irvOn.getToggleState();
+        const auto led = juce::Rectangle<int> (10, 10).withCentre ({ (int) logo.getX() + 6, (int) logo.getY() + 106 });
+        drawLed (g, led, rackOn, juce::Colour (0xff40ff70));
+        g.setColour (LnF::silver.withAlpha (0.8f));
+        g.setFont (LnF::condensed (13.0f));
+        g.drawText ("POWER", juce::Rectangle<float> (logo.getX() + 18.0f, logo.getY() + 98.0f, 60.0f, 16.0f), juce::Justification::centredLeft, false);
+    }
+
     // Display: recessed bezel, smoked red glass, glowing segments, reflection
     const auto disp = rackDisplayArea.toFloat();
     g.setColour (juce::Colour (0xff050506));
@@ -1577,7 +1679,8 @@ void RigPanel::drawRack (juce::Graphics& g) const
 }
 
 //------------------------------------------------------------------------------
-void RigPanel::drawSubPanel (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title) const
+void RigPanel::drawSubPanel (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title,
+                             juce::Justification titleJust) const
 {
     const auto f = r.toFloat();
     fillTextured (g, f, 6.0f, brushedDark);
@@ -1590,9 +1693,10 @@ void RigPanel::drawSubPanel (juce::Graphics& g, juce::Rectangle<int> r, const ju
     // Title in an engraved strip
     g.setColour (juce::Colours::black.withAlpha (0.5f));
     g.setFont (LnF::condensed (19.0f));
-    g.drawText (title, r.withHeight (30).translated (0, 1), juce::Justification::centred, false);
+    const auto titleArea = titleJust == juce::Justification::centred ? r.withHeight (30) : r.withHeight (30).withTrimmedLeft (28);
+    g.drawText (title, titleArea.translated (0, 1), titleJust, false);
     g.setColour (LnF::cream);
-    g.drawText (title, r.withHeight (30), juce::Justification::centred, false);
+    g.drawText (title, titleArea, titleJust, false);
 }
 
 void RigPanel::drawBottomStrip (juce::Graphics& g) const
@@ -1662,10 +1766,17 @@ void RigPanel::drawBottomStrip (juce::Graphics& g) const
     // Sub-panels
     drawSubPanel (g, cabToneArea, "CAB TONE");
     drawSubPanel (g, gateArea,    "NOISE GATE");
-    drawSubPanel (g, inputArea,   "IN");
+    drawSubPanel (g, inputArea,   "IN", juce::Justification::centredLeft);
     drawSubPanel (g, outputArea,  "OUT");
 
-    drawLed (g, gateLedArea, gateLedLit, LnF::redLed);
+    // Gate: off = dark, on + open = green, closing on noise = red
+    drawLed (g, gateLedArea, gateOn.getToggleState(), gateLedLit ? LnF::redLed : juce::Colour (0xff40ff70));
+
+    // Cabinet power: lit when an IR is loaded and the cab is not bypassed
+    drawLed (g, cabLedArea, audioProcessor.getCabIR().hasIR() && ! cabBypass.getToggleState(), juce::Colour (0xff40ff70));
+
+    // Input signal: green with signal, red when clipping
+    drawLed (g, inputLedArea, inputLedLit, inputClip ? LnF::redLed : juce::Colour (0xff40ff70));
 
     // Output meter: segments behind a dark window
     const auto m = meterArea.toFloat();

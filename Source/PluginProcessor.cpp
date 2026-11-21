@@ -34,6 +34,8 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     odGain   = apvts.getRawParameterValue ("odGain");
     odType     = apvts.getRawParameterValue ("odType");
     tunerOn    = apvts.getRawParameterValue ("tunerOn");
+    inputSelect = apvts.getRawParameterValue ("inputSelect");
+    cabLevel    = apvts.getRawParameterValue ("cabLevel");
     tunerRef   = apvts.getRawParameterValue ("tunerRef");
     pnamInput  = apvts.getRawParameterValue ("pnamInput");
     pnamTone   = apvts.getRawParameterValue ("pnamTone");
@@ -281,6 +283,11 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addDbRange ("pnamTone",   "NAM Pedal Tone",   -12.0f, 12.0f, 0.0f);
     addDbRange ("pnamOutput", "NAM Pedal Output", -24.0f, 12.0f, 0.0f);
 
+    // Input selection + cabinet level
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        juce::ParameterID { "inputSelect", 1 }, "Input", juce::StringArray { "Input 1", "Input 2" }, 0));
+    addDbRange ("cabLevel", "Cab Level", -24.0f, 12.0f, 0.0f);
+
     // Chromatic tuner
     layout.add (std::make_unique<juce::AudioParameterBool> (
         juce::ParameterID { "tunerOn", 1 }, "Tuner (mutes output)", false));
@@ -348,6 +355,8 @@ void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int sam
     monoScratch.assign ((size_t) juce::jmax (1, samplesPerBlock) * 2, 0.0f);
     namAmp.prepare (sampleRate, samplesPerBlock);
     tuner.prepare (sampleRate);
+    cabGain.reset (sampleRate, 0.05);
+    cabGain.setCurrentAndTargetValue (juce::Decibels::decibelsToGain (cabLevel->load()));
     pedalNam.prepare (sampleRate, samplesPerBlock);
     pedalTone.prepare (sampleRate);
     pedalInGain.reset  (sampleRate, 0.05);
@@ -400,6 +409,10 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // The whole guitar chain is mono: it runs on the first channel and is
     // copied to the other channel(s) at the end.
+    // INPUT 2 selected: bring the second input channel into the chain.
+    if (inputSelect->load() > 0.5f && getTotalNumInputChannels() > 1 && buffer.getNumChannels() > 1)
+        buffer.copyFrom (0, 0, buffer, 1, 0, numSamples);
+
     auto* mono = buffer.getWritePointer (0);
 
     // 1) Input gain
@@ -407,6 +420,14 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
 
     // The tuner listens to the clean guitar (cheap copy, always running)
     tuner.push (mono, numSamples);
+
+    {
+        const float peak = juce::FloatVectorOperations::findMaximum (mono, numSamples);
+        const float trough = juce::FloatVectorOperations::findMinimum (mono, numSamples);
+        const float p = juce::jmax (peak, -trough);
+        float prev = inputPeak.load();
+        while (p > prev && ! inputPeak.compare_exchange_weak (prev, p)) {}
+    }
 
     // 2) Noise gate, part 1: listen to the clean guitar (before pedals and amp)
     const bool gateEnabled = gateOn->load() > 0.5f;
@@ -476,6 +497,13 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     {
         cabIR.setFilters (cabLowCut->load(), cabHighCut->load());
         cabIR.process (mono, numSamples);
+
+        cabGain.setTargetValue (juce::Decibels::decibelsToGain (cabLevel->load()));
+        cabGain.applyGain (mono, numSamples);
+    }
+    else
+    {
+        cabGain.skip (numSamples);
     }
 
     // Mono -> all channels

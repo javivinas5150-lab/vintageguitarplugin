@@ -16,6 +16,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;   // click outside the unit = close
+    void visibilityChanged() override;                    // starts / stops the meter
 
     void setAccent (juce::Colour displayColour) { unit.accent = displayColour; unit.invalidateCache(); }
 
@@ -29,7 +30,7 @@ private:
 
         void paint (juce::Graphics&) override;
         void resized() override;
-        void visibilityChanged() override;
+        void setRunning (bool shouldRun);
         void invalidateCache() { staticLayer = {}; repaint(); }
 
         juce::Colour accent { 0xffff3a2a };

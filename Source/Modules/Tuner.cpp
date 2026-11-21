@@ -57,7 +57,7 @@ Tuner::Reading Tuner::analyse (float referenceA4)
     }
 
     r.level = (float) std::sqrt (energy / decimatedLen);
-    if (r.level < 0.0025f)            // about -52 dBFS: nothing playing
+    if (r.level < 0.0008f)            // about -62 dBFS: nothing playing
         return r;
 
     // --- YIN ---

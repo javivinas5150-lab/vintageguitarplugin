@@ -319,6 +319,14 @@ void JeminiLookAndFeel::drawModeSwitch (juce::Graphics& g, juce::ToggleButton& b
 
 void JeminiLookAndFeel::drawButtonText (juce::Graphics& g, juce::TextButton& button, bool highlighted, bool down)
 {
+    if (button.getProperties()["style"].toString() == "inputSelect")
+    {
+        g.setColour (button.getToggleState() ? cream : silver.withAlpha (highlighted ? 0.8f : 0.5f));
+        g.setFont (condensed (14.0f));
+        g.drawText (button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, false);
+        return;
+    }
+
     if (button.getProperties()["style"].toString() == "tunerButton")
     {
         g.setColour (button.getToggleState() ? juce::Colour (0xffeafff0) : cream.withAlpha (highlighted ? 1.0f : 0.85f));
@@ -434,6 +442,23 @@ void JeminiLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Button& b
     const auto style = button.getProperties()["style"].toString();
     if (style == "rackSelect")
         return; // flat text only
+
+    if (style == "inputSelect")
+    {
+        auto r = button.getLocalBounds().toFloat().reduced (1.0f);
+        const bool on = button.getToggleState();
+        g.setColour (juce::Colour (0xff050506));
+        g.fillRoundedRectangle (r, 4.0f);
+        if (on)
+        {
+            juce::ColourGradient lit (juce::Colour (0xff3a3326), r.getX(), r.getY(), juce::Colour (0xff1a160f), r.getX(), r.getBottom(), false);
+            g.setGradientFill (lit);
+            g.fillRoundedRectangle (r.reduced (1.5f), 3.0f);
+        }
+        g.setColour (on ? cream.withAlpha (0.6f) : silver.withAlpha (highlighted ? 0.5f : 0.25f));
+        g.drawRoundedRectangle (r, 4.0f, 1.0f);
+        return;
+    }
 
     if (style == "tunerButton")
     {

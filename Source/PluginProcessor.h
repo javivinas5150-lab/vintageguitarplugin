@@ -77,6 +77,16 @@ public:
     Tuner::Reading readTuner() { return tuner.analyse (tunerRef->load()); }
     bool isTunerOn() const { return tunerOn->load() > 0.5f; }
 
+    // Which interface input the guitar is on (0 = input 1, 1 = input 2)
+    int getInputChannel() const { return inputSelect->load() > 0.5f ? 1 : 0; }
+    void setInputChannel (int index)
+    {
+        if (auto* prm = apvts.getParameter ("inputSelect"))
+            prm->setValueNotifyingHost (index > 0 ? 1.0f : 0.0f);
+    }
+    // Input peak since the last call (after the INPUT knob), for the signal LED
+    float takeInputPeak() { return inputPeak.exchange (0.0f); }
+
     // Skin index (GUI look), saved with the project / app settings
     int getSkin() const { return (int) apvts.state.getProperty ("skin", 0); }
     void setSkin (int index) { apvts.state.setProperty ("skin", index, nullptr); }
@@ -133,6 +143,10 @@ private:
     std::atomic<float>* odOutput = nullptr;
     std::atomic<float>* odType   = nullptr;   // 0 = Gold Drive, 1 = NAM pedal
     std::atomic<float>* tunerOn  = nullptr;
+    std::atomic<float>* inputSelect = nullptr;
+    std::atomic<float>* cabLevel    = nullptr;
+    juce::SmoothedValue<float> cabGain;
+    std::atomic<float> inputPeak { 0.0f };
     std::atomic<float>* tunerRef = nullptr;
     Tuner tuner;
     std::atomic<float>* pnamInput  = nullptr;

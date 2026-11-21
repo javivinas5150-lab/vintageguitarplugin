@@ -26,6 +26,8 @@ public:
 
     void paint (juce::Graphics&) override;
     void paintOverChildren (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;     // amp input jacks select input 1 / 2
+    void mouseMove (const juce::MouseEvent&) override;
     void resized() override;
 
 private:
@@ -70,7 +72,9 @@ private:
     void drawAmpHead (juce::Graphics&) const;
     void drawRack (juce::Graphics&) const;
     void drawBottomStrip (juce::Graphics&) const;
-    void drawSubPanel (juce::Graphics&, juce::Rectangle<int>, const juce::String& title) const;
+    void drawSubPanel (juce::Graphics&, juce::Rectangle<int>, const juce::String& title,
+                       juce::Justification titleJust = juce::Justification::centred) const;
+    juce::Point<float> jackCentre (int index) const;
     void buildTextures();
 public:
     void applySkin (int index);     // rebuild materials for a skin (see Skins.h)
@@ -133,7 +137,12 @@ private:
     juce::ToggleButton cabBypass { "BYPASS" };
     std::unique_ptr<ButtonAttachment> cabBypassAttachment;
     juce::Label cabNameLabel;
-    Knob lowCut, highCut;
+    Knob lowCut, highCut, cabLevelKnob;
+    juce::Rectangle<int> cabLedArea, rackPowerLedArea, inputLedArea;
+    std::array<juce::TextButton, 2> inputButtons;
+    int shownInput = -1;
+    float inputLevel = 0.0f;
+    bool inputLedLit = false, inputClip = false;
 
     juce::ToggleButton gateOn { "ON" };
     std::unique_ptr<ButtonAttachment> gateOnAttachment;
