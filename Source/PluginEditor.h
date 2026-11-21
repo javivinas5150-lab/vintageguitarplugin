@@ -21,16 +21,24 @@ private:
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
 
     void setupKnob (juce::Slider& slider, juce::Label& label, const juce::String& text,
-                    float labelSize = 15.0f, int textBoxWidth = 80);
+                    float labelSize = 15.0f, int textBoxWidth = 80,
+                    const juce::String& suffix = " dB", double doubleClickValue = 0.0);
     void chooseNamFile();
     void refreshAmpInfo();
-    void timerCallback() override { refreshAmpInfo(); }
+    void timerCallback() override;
 
     VintageGuitarSuiteAudioProcessor& audioProcessor;
 
     // Gain knobs
     juce::Slider inputKnob, outputKnob;
     juce::Label  inputLabel, outputLabel;
+
+    // Gate section
+    juce::Rectangle<int> gateArea, gateLedArea;
+    juce::ToggleButton gateButton { "ON" };
+    juce::Slider gateThresholdKnob, gateReleaseKnob;
+    juce::Label  gateThresholdLabel, gateReleaseLabel;
+    bool gateLedOn = false;
 
     // Amp section
     juce::Rectangle<int> ampArea;
@@ -48,7 +56,8 @@ private:
 
     // Attachments must be declared AFTER the controls (destroyed first)
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment;
-    std::unique_ptr<ButtonAttachment> bypassAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment, gateOnAttachment;
+    std::unique_ptr<SliderAttachment> gateThresholdAttachment, gateReleaseAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numAmpKnobs> ampKnobAttachments;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VintageGuitarSuiteAudioProcessorEditor)

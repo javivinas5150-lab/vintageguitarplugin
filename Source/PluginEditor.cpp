@@ -65,12 +65,38 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
                                                                              ampKnobs[(size_t) i]);
     }
 
+    // Gate
+    gateButton.setColour (juce::ToggleButton::textColourId, cream);
+    gateButton.setColour (juce::ToggleButton::tickColourId, cream);
+    addAndMakeVisible (gateButton);
+
+    setupKnob (gateThresholdKnob, gateThresholdLabel, "THRESH",  12.0f, 62, " dB", -60.0);
+    setupKnob (gateReleaseKnob,   gateReleaseLabel,   "RELEASE", 12.0f, 62, " ms", 100.0);
+
+    gateOnAttachment        = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "gateOn",        gateButton);
+    gateThresholdAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "gateThreshold", gateThresholdKnob);
+    gateReleaseAttachment   = std::make_unique<SliderAttachment> (audioProcessor.apvts, "gateRelease",   gateReleaseKnob);
+
     lastFolder = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
 
     refreshAmpInfo();
-    startTimerHz (4); // keeps the model name in sync (e.g. after a project loads)
+    startTimerHz (15); // gate LED + keeps the model name in sync
 
-    setSize (820, 400);
+    setSize (980, 400);
+}
+
+//==============================================================================
+void VintageGuitarSuiteAudioProcessorEditor::timerCallback()
+{
+    const bool led = audioProcessor.isGateClosing();
+
+    if (led != gateLedOn)
+    {
+        gateLedOn = led;
+        repaint (gateLedArea.expanded (2));
+    }
+
+    refreshAmpInfo();
 }
 
 //==============================================================================
@@ -78,12 +104,14 @@ void VintageGuitarSuiteAudioProcessorEditor::setupKnob (juce::Slider& slider,
                                                         juce::Label& label,
                                                         const juce::String& text,
                                                         float labelSize,
-                                                        int textBoxWidth)
+                                                        int textBoxWidth,
+                                                        const juce::String& suffix,
+                                                        double doubleClickValue)
 {
     slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, textBoxWidth, 20);
-    slider.setTextValueSuffix (" dB");
-    slider.setDoubleClickReturnValue (true, 0.0); // double-click = 0 dB
+    slider.setTextValueSuffix (suffix);
+    slider.setDoubleClickReturnValue (true, doubleClickValue); // double-click = default
     slider.setColour (juce::Slider::rotarySliderFillColourId,    juce::Colour (0xffd8c9a3));
     slider.setColour (juce::Slider::rotarySliderOutlineColourId, juce::Colour (0xff3a3a3a));
     slider.setColour (juce::Slider::thumbColourId,               cream);
@@ -157,17 +185,27 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("NAM Amp", 0, 42, getWidth(), 16, juce::Justification::centred);
+    g.drawText ("Gate + NAM Amp", 0, 42, getWidth(), 16, juce::Justification::centred);
 
-    // Amp panel
-    g.setColour (tolex);
-    g.fillRoundedRectangle (ampArea.toFloat(), 6.0f);
-    g.setColour (silver.withAlpha (0.6f));
-    g.drawRoundedRectangle (ampArea.toFloat().reduced (0.5f), 6.0f, 1.0f);
+    // Gate and amp panels
+    for (auto [panel, title] : { std::pair { gateArea, "GATE" }, std::pair { ampArea, "AMP" } })
+    {
+        g.setColour (tolex);
+        g.fillRoundedRectangle (panel.toFloat(), 6.0f);
+        g.setColour (silver.withAlpha (0.6f));
+        g.drawRoundedRectangle (panel.toFloat().reduced (0.5f), 6.0f, 1.0f);
 
-    g.setColour (cream);
-    g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
-    g.drawText ("AMP", ampArea.withHeight (30), juce::Justification::centred);
+        g.setColour (cream);
+        g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
+        g.drawText (title, panel.withHeight (30), juce::Justification::centred);
+    }
+
+    // Gate LED: red while the gate is closing / silencing
+    const auto led = gateLedArea.toFloat();
+    g.setColour (gateLedOn ? juce::Colour (0xffe03020) : juce::Colour (0xff3a1a16));
+    g.fillEllipse (led);
+    g.setColour (juce::Colours::black.withAlpha (0.6f));
+    g.drawEllipse (led, 1.0f);
 }
 
 void VintageGuitarSuiteAudioProcessorEditor::resized()
@@ -175,15 +213,34 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
     auto area = getLocalBounds().reduced (20);
     area.removeFromTop (50); // title space
 
-    auto left  = area.removeFromLeft (150);
-    auto right = area.removeFromRight (150);
+    auto left  = area.removeFromLeft (130);
+    auto right = area.removeFromRight (130);
+    gateArea   = area.removeFromLeft (170).reduced (10, 0);
     ampArea    = area.reduced (10, 0);
 
     inputLabel.setBounds  (left.removeFromTop (24));
-    inputKnob.setBounds   (left.reduced (10, 0));
+    inputKnob.setBounds   (left.reduced (5, 0));
+
+    // Gate section: ON + LED, then THRESH and RELEASE stacked
+    auto gate = gateArea.reduced (12);
+    gate.removeFromTop (25); // "GATE" title
+
+    auto gateRow = gate.removeFromTop (26);
+    gateLedArea = gateRow.removeFromRight (14).withSizeKeepingCentre (14, 14);
+    gateButton.setBounds (gateRow.withSizeKeepingCentre (60, 26));
+    gate.removeFromTop (6);
+
+    const int knobHeight = gate.getHeight() / 2;
+    auto threshArea  = gate.removeFromTop (knobHeight);
+    auto releaseArea = gate;
+
+    gateThresholdLabel.setBounds (threshArea.removeFromTop (16));
+    gateThresholdKnob.setBounds  (threshArea);
+    gateReleaseLabel.setBounds   (releaseArea.removeFromTop (16));
+    gateReleaseKnob.setBounds    (releaseArea);
 
     outputLabel.setBounds (right.removeFromTop (24));
-    outputKnob.setBounds  (right.reduced (10, 0));
+    outputKnob.setBounds  (right.reduced (5, 0));
 
     // Amp section contents
     auto amp = ampArea.reduced (15);

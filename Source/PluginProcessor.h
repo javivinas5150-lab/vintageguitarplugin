@@ -3,6 +3,7 @@
 #include <JuceHeader.h>
 #include "Modules/NamAmp.h"
 #include "Modules/ToneStack.h"
+#include "Modules/NoiseGate.h"
 
 //==============================================================================
 // Vintage Guitar Suite - Phase 2
@@ -58,6 +59,7 @@ public:
     juce::String loadNamModel (const juce::File& file);
     void clearNamModel();
     const NamAmp& getNamAmp() const { return namAmp; }
+    bool isGateClosing() const { return gateOn->load() > 0.5f && noiseGate.isGating(); }
 
 private:
     // Raw pointers to the parameter values, read on the audio thread
@@ -70,6 +72,11 @@ private:
     std::atomic<float>* ampTrebleDb  = nullptr;
     std::atomic<float>* ampVolumeDb  = nullptr;
 
+    std::atomic<float>* gateOn        = nullptr;
+    std::atomic<float>* gateThreshold = nullptr;
+    std::atomic<float>* gateRelease   = nullptr;
+
+    NoiseGate noiseGate;
     NamAmp namAmp;
     ToneStack toneStack;
     juce::SmoothedValue<float> ampGain, ampVolume;

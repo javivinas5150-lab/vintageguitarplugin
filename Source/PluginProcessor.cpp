@@ -16,6 +16,10 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     ampMiddleDb  = apvts.getRawParameterValue ("ampMiddle");
     ampTrebleDb  = apvts.getRawParameterValue ("ampTreble");
     ampVolumeDb  = apvts.getRawParameterValue ("ampVolume");
+
+    gateOn        = apvts.getRawParameterValue ("gateOn");
+    gateThreshold = apvts.getRawParameterValue ("gateThreshold");
+    gateRelease   = apvts.getRawParameterValue ("gateRelease");
 }
 
 //==============================================================================
@@ -75,12 +79,29 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
     addDb ("ampTreble", "Amp Treble", 10.0f);
     addDb ("ampVolume", "Amp Volume", 20.0f);
 
+    // Noise gate
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "gateOn", 1 }, "Gate On", false));
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "gateThreshold", 1 }, "Gate Threshold",
+        juce::NormalisableRange<float> (-90.0f, -20.0f, 0.5f), -60.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("dB")));
+
+    juce::NormalisableRange<float> releaseRange (10.0f, 500.0f, 1.0f);
+    releaseRange.setSkewForCentre (100.0f);
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "gateRelease", 1 }, "Gate Release", releaseRange, 100.0f,
+        juce::AudioParameterFloatAttributes().withLabel ("ms")));
+
     return layout;
 }
 
 //==============================================================================
 void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    noiseGate.prepare (sampleRate, samplesPerBlock);
     namAmp.prepare (sampleRate, samplesPerBlock);
     toneStack.prepare (sampleRate);
 
@@ -129,7 +150,16 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
     // 1) Input gain
     inputGain.applyGain (buffer, numSamples);
 
-    // 2) (Phase 4) Uni-Vibe -> Klon-style OD will go here
+    // 2) Noise gate, part 1: listen to the clean guitar (before the amp)
+    const bool gateEnabled = gateOn->load() > 0.5f;
+
+    if (gateEnabled)
+    {
+        noiseGate.setParameters (gateThreshold->load(), gateRelease->load());
+        noiseGate.analyse (buffer.getReadPointer (0), numSamples);
+    }
+
+    // (Phase 4) Uni-Vibe -> Klon-style OD will go here
 
     // 3) Amp: GAIN -> NAM model -> BASS/MIDDLE/TREBLE -> VOLUME
     //    NAM models are mono: process the first channel,
@@ -153,7 +183,12 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
             buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
     }
 
-    // 4) (Phase 3, 5) Cabinet IR -> Delay/Reverb will go here
+    // 4) Noise gate, part 2: silence after the amp (removes amp hiss too)
+    if (gateEnabled)
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            noiseGate.apply (buffer.getWritePointer (ch), numSamples);
+
+    // (Phase 3, 5) Cabinet IR -> Delay/Reverb will go here
 
     // 5) Output gain
     outputGain.applyGain (buffer, numSamples);
