@@ -24,6 +24,8 @@
         <FILE id="fTnStC" name="ToneStack.cpp" compile="1" resource="0" file="Source/Modules/ToneStack.cpp"/>
         <FILE id="fNGateH" name="NoiseGate.h" compile="0" resource="0" file="Source/Modules/NoiseGate.h"/>
         <FILE id="fNGateC" name="NoiseGate.cpp" compile="1" resource="0" file="Source/Modules/NoiseGate.cpp"/>
+        <FILE id="fCabIRH" name="CabIR.h" compile="0" resource="0" file="Source/Modules/CabIR.h"/>
+        <FILE id="fCabIRC" name="CabIR.cpp" compile="1" resource="0" file="Source/Modules/CabIR.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="gNam001" name="NAM">

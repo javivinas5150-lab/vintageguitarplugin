@@ -4,7 +4,7 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// Phase 2 editor: INPUT knob | AMP section (NAM loader) | OUTPUT knob
+// Editor: INPUT | GATE | AMP (NAM) | CAB (IR) | OUTPUT
 //==============================================================================
 class VintageGuitarSuiteAudioProcessorEditor : public juce::AudioProcessorEditor,
                                                private juce::Timer
@@ -24,7 +24,9 @@ private:
                     float labelSize = 15.0f, int textBoxWidth = 80,
                     const juce::String& suffix = " dB", double doubleClickValue = 0.0);
     void chooseNamFile();
+    void chooseIRFile();
     void refreshAmpInfo();
+    void refreshCabInfo();
     void timerCallback() override;
 
     VintageGuitarSuiteAudioProcessor& audioProcessor;
@@ -51,12 +53,22 @@ private:
     static constexpr int numAmpKnobs = 5;
     std::array<juce::Slider, numAmpKnobs> ampKnobs;
     std::array<juce::Label,  numAmpKnobs> ampKnobLabels;
+    // Cab section
+    juce::Rectangle<int> cabArea;
+    juce::TextButton loadIRButton  { "LOAD IR..." };
+    juce::TextButton clearIRButton { "X" };
+    juce::ToggleButton cabBypassButton { "Bypass" };
+    juce::Label irNameLabel;
+    juce::Slider lowCutKnob, highCutKnob;
+    juce::Label  lowCutLabel, highCutLabel;
+
     std::unique_ptr<juce::FileChooser> fileChooser;
-    juce::File lastFolder;
+    juce::File lastFolder, lastIRFolder;
 
     // Attachments must be declared AFTER the controls (destroyed first)
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment;
-    std::unique_ptr<ButtonAttachment> bypassAttachment, gateOnAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment, gateOnAttachment, cabBypassAttachment;
+    std::unique_ptr<SliderAttachment> lowCutAttachment, highCutAttachment;
     std::unique_ptr<SliderAttachment> gateThresholdAttachment, gateReleaseAttachment;
     std::array<std::unique_ptr<SliderAttachment>, numAmpKnobs> ampKnobAttachments;
 

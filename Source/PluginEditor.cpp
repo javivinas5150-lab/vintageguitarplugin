@@ -77,12 +77,85 @@ VintageGuitarSuiteAudioProcessorEditor::VintageGuitarSuiteAudioProcessorEditor (
     gateThresholdAttachment = std::make_unique<SliderAttachment> (audioProcessor.apvts, "gateThreshold", gateThresholdKnob);
     gateReleaseAttachment   = std::make_unique<SliderAttachment> (audioProcessor.apvts, "gateRelease",   gateReleaseKnob);
 
-    lastFolder = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
+    // Cab
+    for (auto* b : { &loadIRButton, &clearIRButton })
+    {
+        b->setColour (juce::TextButton::buttonColourId, juce::Colour (0xff3a3a3a));
+        b->setColour (juce::TextButton::textColourOffId, cream);
+        addAndMakeVisible (*b);
+    }
+
+    loadIRButton.onClick = [this] { chooseIRFile(); };
+    clearIRButton.setTooltip ("Unload IR");
+    clearIRButton.onClick = [this]
+    {
+        audioProcessor.clearCabIR();
+        refreshCabInfo();
+    };
+
+    cabBypassButton.setColour (juce::ToggleButton::textColourId, cream);
+    cabBypassButton.setColour (juce::ToggleButton::tickColourId, cream);
+    addAndMakeVisible (cabBypassButton);
+
+    irNameLabel.setJustificationType (juce::Justification::centred);
+    irNameLabel.setColour (juce::Label::textColourId, cream);
+    irNameLabel.setFont (juce::FontOptions (13.0f));
+    irNameLabel.setMinimumHorizontalScale (0.6f);
+    addAndMakeVisible (irNameLabel);
+
+    setupKnob (lowCutKnob,  lowCutLabel,  "LOW CUT",  12.0f, 66, " Hz", 20.0);
+    setupKnob (highCutKnob, highCutLabel, "HIGH CUT", 12.0f, 66, " Hz", 20000.0);
+
+    cabBypassAttachment = std::make_unique<ButtonAttachment> (audioProcessor.apvts, "cabBypass",  cabBypassButton);
+    lowCutAttachment    = std::make_unique<SliderAttachment> (audioProcessor.apvts, "cabLowCut",  lowCutKnob);
+    highCutAttachment   = std::make_unique<SliderAttachment> (audioProcessor.apvts, "cabHighCut", highCutKnob);
+
+    lastFolder   = juce::File::getSpecialLocation (juce::File::userDesktopDirectory);
+    lastIRFolder = lastFolder;
 
     refreshAmpInfo();
-    startTimerHz (15); // gate LED + keeps the model name in sync
+    refreshCabInfo();
+    startTimerHz (15); // gate LED + keeps the model / IR names in sync
 
-    setSize (980, 400);
+    setSize (1180, 400);
+}
+
+//==============================================================================
+void VintageGuitarSuiteAudioProcessorEditor::chooseIRFile()
+{
+    fileChooser = std::make_unique<juce::FileChooser> ("Choose a cabinet IR", lastIRFolder,
+                                                       CabIR::getSupportedWildcard());
+
+    const auto openFlags = juce::FileBrowserComponent::openMode
+                         | juce::FileBrowserComponent::canSelectFiles;
+
+    fileChooser->launchAsync (openFlags, [this] (const juce::FileChooser& fc)
+    {
+        const auto file = fc.getResult();
+
+        if (file == juce::File())
+            return; // cancelled
+
+        lastIRFolder = file.getParentDirectory();
+
+        const auto error = audioProcessor.loadCabIR (file);
+
+        if (error.isNotEmpty())
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon,
+                                                    "Vintage Guitar Suite", error);
+        refreshCabInfo();
+    });
+}
+
+void VintageGuitarSuiteAudioProcessorEditor::refreshCabInfo()
+{
+    const auto& cab = audioProcessor.getCabIR();
+
+    const auto name = cab.hasIR() ? cab.getIRName() : juce::String ("No IR loaded");
+    if (irNameLabel.getText() != name)
+        irNameLabel.setText (name, juce::dontSendNotification);
+
+    clearIRButton.setEnabled (cab.hasIR());
 }
 
 //==============================================================================
@@ -97,6 +170,7 @@ void VintageGuitarSuiteAudioProcessorEditor::timerCallback()
     }
 
     refreshAmpInfo();
+    refreshCabInfo();
 }
 
 //==============================================================================
@@ -185,10 +259,12 @@ void VintageGuitarSuiteAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (dimGrey);
     g.setFont (juce::FontOptions (12.0f));
-    g.drawText ("Gate + NAM Amp", 0, 42, getWidth(), 16, juce::Justification::centred);
+    g.drawText ("Gate  -  NAM Amp  -  Cab IR", 0, 42, getWidth(), 16, juce::Justification::centred);
 
-    // Gate and amp panels
-    for (auto [panel, title] : { std::pair { gateArea, "GATE" }, std::pair { ampArea, "AMP" } })
+    // Gate, amp and cab panels
+    for (auto [panel, title] : { std::pair { gateArea, "GATE" },
+                                 std::pair { ampArea,  "AMP" },
+                                 std::pair { cabArea,  "CAB" } })
     {
         g.setColour (tolex);
         g.fillRoundedRectangle (panel.toFloat(), 6.0f);
@@ -216,7 +292,31 @@ void VintageGuitarSuiteAudioProcessorEditor::resized()
     auto left  = area.removeFromLeft (130);
     auto right = area.removeFromRight (130);
     gateArea   = area.removeFromLeft (170).reduced (10, 0);
+    cabArea    = area.removeFromRight (220).reduced (10, 0);
     ampArea    = area.reduced (10, 0);
+
+    // Cab section: IR name, LOAD IR + X, Bypass, then LOW CUT | HIGH CUT
+    auto cab = cabArea.reduced (12);
+    cab.removeFromTop (25); // "CAB" title
+
+    irNameLabel.setBounds (cab.removeFromTop (26));
+    cab.removeFromTop (4);
+
+    auto irRow = cab.removeFromTop (28);
+    clearIRButton.setBounds (irRow.removeFromRight (28));
+    irRow.removeFromRight (6);
+    loadIRButton.setBounds (irRow);
+
+    cab.removeFromTop (6);
+    cabBypassButton.setBounds (cab.removeFromTop (26).withSizeKeepingCentre (90, 26));
+    cab.removeFromTop (6);
+
+    auto lowCol  = cab.removeFromLeft (cab.getWidth() / 2);
+    auto highCol = cab;
+    lowCutLabel.setBounds  (lowCol.removeFromTop (18));
+    lowCutKnob.setBounds   (lowCol.reduced (2, 0));
+    highCutLabel.setBounds (highCol.removeFromTop (18));
+    highCutKnob.setBounds  (highCol.reduced (2, 0));
 
     inputLabel.setBounds  (left.removeFromTop (24));
     inputKnob.setBounds   (left.reduced (5, 0));

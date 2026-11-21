@@ -20,12 +20,33 @@ VintageGuitarSuiteAudioProcessor::VintageGuitarSuiteAudioProcessor()
     gateOn        = apvts.getRawParameterValue ("gateOn");
     gateThreshold = apvts.getRawParameterValue ("gateThreshold");
     gateRelease   = apvts.getRawParameterValue ("gateRelease");
+
+    cabBypass  = apvts.getRawParameterValue ("cabBypass");
+    cabLowCut  = apvts.getRawParameterValue ("cabLowCut");
+    cabHighCut = apvts.getRawParameterValue ("cabHighCut");
 }
 
 //==============================================================================
 namespace
 {
     const juce::Identifier namModelPathId ("namModelPath");
+    const juce::Identifier cabIRPathId    ("cabIRPath");
+}
+
+juce::String VintageGuitarSuiteAudioProcessor::loadCabIR (const juce::File& file)
+{
+    auto error = cabIR.loadIR (file);
+
+    if (error.isEmpty())
+        apvts.state.setProperty (cabIRPathId, file.getFullPathName(), nullptr);
+
+    return error;
+}
+
+void VintageGuitarSuiteAudioProcessor::clearCabIR()
+{
+    cabIR.clearIR();
+    apvts.state.removeProperty (cabIRPathId, nullptr);
 }
 
 juce::String VintageGuitarSuiteAudioProcessor::loadNamModel (const juce::File& file)
@@ -95,6 +116,24 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
         juce::ParameterID { "gateRelease", 1 }, "Gate Release", releaseRange, 100.0f,
         juce::AudioParameterFloatAttributes().withLabel ("ms")));
 
+    // Cabinet
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        juce::ParameterID { "cabBypass", 1 }, "Cab Bypass", false));
+
+    juce::NormalisableRange<float> lowCutRange (20.0f, 400.0f, 1.0f);
+    lowCutRange.setSkewForCentre (90.0f);
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "cabLowCut", 1 }, "Cab Low Cut", lowCutRange, 20.0f,     // 20 Hz = off
+        juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+
+    juce::NormalisableRange<float> highCutRange (2000.0f, 20000.0f, 10.0f);
+    highCutRange.setSkewForCentre (7000.0f);
+
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        juce::ParameterID { "cabHighCut", 1 }, "Cab High Cut", highCutRange, 20000.0f, // 20 kHz = off
+        juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+
     return layout;
 }
 
@@ -102,6 +141,7 @@ VintageGuitarSuiteAudioProcessor::createParameterLayout()
 void VintageGuitarSuiteAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     noiseGate.prepare (sampleRate, samplesPerBlock);
+    cabIR.prepare (sampleRate, samplesPerBlock);
     namAmp.prepare (sampleRate, samplesPerBlock);
     toneStack.prepare (sampleRate);
 
@@ -188,9 +228,19 @@ void VintageGuitarSuiteAudioProcessor::processBlock (juce::AudioBuffer<float>& b
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             noiseGate.apply (buffer.getWritePointer (ch), numSamples);
 
-    // (Phase 3, 5) Cabinet IR -> Delay/Reverb will go here
+    // 5) Cabinet IR + Low Cut / High Cut (mono, then copied to other channels)
+    if (cabBypass->load() < 0.5f)
+    {
+        cabIR.setFilters (cabLowCut->load(), cabHighCut->load());
+        cabIR.process (buffer.getWritePointer (0), numSamples);
 
-    // 5) Output gain
+        for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
+            buffer.copyFrom (ch, 0, buffer, 0, 0, numSamples);
+    }
+
+    // (Phase 5) Delay/Reverb will go here
+
+    // 6) Output gain
     outputGain.applyGain (buffer, numSamples);
 }
 
@@ -223,6 +273,14 @@ void VintageGuitarSuiteAudioProcessor::setStateInformation (const void* data, in
             namAmp.loadModel (juce::File (path)); // if missing, the amp stays empty
         else
             namAmp.clearModel();
+
+        // ...and the cabinet IR
+        const auto irPath = apvts.state.getProperty (cabIRPathId).toString();
+
+        if (irPath.isNotEmpty())
+            cabIR.loadIR (juce::File (irPath));
+        else
+            cabIR.clearIR();
     }
 }
 

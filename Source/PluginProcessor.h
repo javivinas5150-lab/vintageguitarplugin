@@ -4,6 +4,7 @@
 #include "Modules/NamAmp.h"
 #include "Modules/ToneStack.h"
 #include "Modules/NoiseGate.h"
+#include "Modules/CabIR.h"
 
 //==============================================================================
 // Vintage Guitar Suite - Phase 2
@@ -61,6 +62,11 @@ public:
     const NamAmp& getNamAmp() const { return namAmp; }
     bool isGateClosing() const { return gateOn->load() > 0.5f && noiseGate.isGating(); }
 
+    // Cabinet IR (message thread). Returns "" on success.
+    juce::String loadCabIR (const juce::File& file);
+    void clearCabIR();
+    const CabIR& getCabIR() const { return cabIR; }
+
 private:
     // Raw pointers to the parameter values, read on the audio thread
     std::atomic<float>* inputGainDb  = nullptr;
@@ -76,7 +82,12 @@ private:
     std::atomic<float>* gateThreshold = nullptr;
     std::atomic<float>* gateRelease   = nullptr;
 
+    std::atomic<float>* cabBypass  = nullptr;
+    std::atomic<float>* cabLowCut  = nullptr;
+    std::atomic<float>* cabHighCut = nullptr;
+
     NoiseGate noiseGate;
+    CabIR cabIR;
     NamAmp namAmp;
     ToneStack toneStack;
     juce::SmoothedValue<float> ampGain, ampVolume;
