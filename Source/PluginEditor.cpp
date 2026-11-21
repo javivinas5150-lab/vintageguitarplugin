@@ -101,10 +101,10 @@ void VintageGuitarSuiteAudioProcessorEditor::chooseNamFile()
 {
     fileChooser = std::make_unique<juce::FileChooser> ("Choose a NAM model", lastFolder, "*.nam");
 
-    const auto flags = juce::FileBrowserComponent::openMode
+    const auto openFlags = juce::FileBrowserComponent::openMode
                      | juce::FileBrowserComponent::canSelectFiles;
 
-    fileChooser->launchAsync (flags, [this] (const juce::FileChooser& fc)
+    fileChooser->launchAsync (openFlags, [this] (const juce::FileChooser& fc)
     {
         const auto file = fc.getResult();
 
