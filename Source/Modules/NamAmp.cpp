@@ -3,10 +3,34 @@
 #include "NAM/dsp.h"
 #include "NAM/get_dsp.h"
 
+// Headers of every NAM architecture (see forceLinkNamArchitectures below)
+#include "NAM/container.h"
+#include "NAM/convnet.h"
+#include "NAM/linear.h"
+#include "NAM/lstm.h"
+#include "NAM/sequential.h"
+#include "NAM/wavenet/model.h"
+
 #include <filesystem>
 
 namespace
 {
+    // Each NAM architecture (WaveNet, LSTM, A2/SlimmableContainer...) registers
+    // itself from a static object inside its own .cpp file. Projucer builds those
+    // files into a static library, and the linker drops any object file nobody
+    // references - taking the registration with it ("No config parser registered").
+    // Referencing one function from each file forces the linker to keep them all.
+    using CreateConfigFn = std::unique_ptr<nam::ModelConfig> (*) (const nlohmann::json&, double);
+
+    [[maybe_unused]] volatile CreateConfigFn namArchitectures[] = {
+        &nam::container::create_config,
+        &nam::convnet::create_config,
+        &nam::linear::create_config,
+        &nam::lstm::create_config,
+        &nam::sequential::create_config,
+        &nam::wavenet::create_config,
+    };
+
     // NAM models are normalised to this level so different captures
     // have a similar volume (same target as the official NAM plugin).
     constexpr double targetLoudnessDb = -18.0;
@@ -23,7 +47,16 @@ namespace
 }
 
 //==============================================================================
-NamAmp::NamAmp()  = default;
+NamAmp::NamAmp()
+{
+    // Read the (volatile) table so the optimiser can't remove it
+    int registered = 0;
+    for (auto fn : namArchitectures)
+        registered += (fn != nullptr) ? 1 : 0;
+
+    jassertquiet (registered == (int) std::size (namArchitectures));
+}
+
 NamAmp::~NamAmp() = default;
 
 //==============================================================================
